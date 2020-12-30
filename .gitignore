@@ -1,0 +1,7 @@
+# ignore vim swap files
+*.swp
+
+dist/js
+node_modules
+
+.DS_Store

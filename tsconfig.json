@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "common/*": ["src/common/*"],
+        },
+        "target": "es2017",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "jsx": "react",
+        "lib": ["es2019", "dom"],
+        "experimentalDecorators": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "strict": true,
+        "plugins": [
+            {
+                "name": "typescript-eslint-language-service"
+            }
+        ]
+    },
+    "typeRoots": "node_modules"
+}
