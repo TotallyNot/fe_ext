@@ -4,7 +4,7 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TotallyNot/FirstResponder.git"
+    "url": "https://github.com/TotallyNot/fe_ext.git"
   },
   "scripts": {
     "build": "webpack --config webpack.prod.ts",
@@ -12,7 +12,7 @@
     "watch": "webpack -w --config webpack.dev.ts"
   },
   "author": "Pyrit [2111649]",
-  "license": "Unlicense",
+  "license": "BSD-3-Clause",
   "devDependencies": {
     "@types/webpack": "^4.41.18",
     "@types/webpack-env": "^1.15.2",
