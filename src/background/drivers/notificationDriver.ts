@@ -1,5 +1,5 @@
 import { browser, Notifications } from "webextension-polyfill-ts";
-import { Stream } from "xstream";
+import { Stream, Subscription, default as xs } from "xstream";
 
 type CreateNotification = {
     kind: "create";
@@ -13,6 +13,11 @@ type ClearNotification = {
 };
 
 export type NotificationActions = CreateNotification | ClearNotification;
+
+export type NotificationEvent = {
+    id: string;
+    kind: "create" | "clear";
+};
 
 export const create = (
     category: string,
@@ -29,21 +34,45 @@ export const clear = (category: string): NotificationActions => ({
 });
 
 export class NotificationSource {
+    private stream: Stream<NotificationEvent>;
+
+    select(id?: string): Stream<NotificationEvent> {
+        if (id) {
+            return this.stream.filter(event => event.id === id);
+        } else {
+            return this.stream;
+        }
+    }
+
     constructor(action$: Stream<NotificationActions>) {
-        action$.addListener({
-            next: action => {
-                switch (action.kind) {
-                    case "create":
-                        browser.notifications.create(
-                            action.category,
-                            action.config
-                        );
-                        break;
-                    case "clear":
-                        browser.notifications.clear(action.category);
-                        break;
-                }
+        let subscription: Subscription | undefined = undefined;
+        this.stream = xs.create({
+            start: listener => {
+                subscription = action$.subscribe({
+                    next: action => {
+                        switch (action.kind) {
+                            case "create":
+                                browser.notifications
+                                    .create(action.category, action.config)
+                                    .then(id =>
+                                        listener.next({ kind: "create", id })
+                                    );
+                                break;
+                            case "clear":
+                                browser.notifications
+                                    .clear(action.category)
+                                    .then(() =>
+                                        listener.next({
+                                            kind: "clear",
+                                            id: action.category,
+                                        })
+                                    );
+                                break;
+                        }
+                    },
+                });
             },
+            stop: () => subscription?.unsubscribe(),
         });
     }
 }

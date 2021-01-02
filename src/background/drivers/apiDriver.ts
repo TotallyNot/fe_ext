@@ -21,7 +21,7 @@ const toRequest = ({ selection, apiKey, id }: APIRequest): RequestInput => {
     const category = id ? `${selection}-${id}` : selection;
     const idQuery = id ? `id=${id}` : "";
     return {
-        url: `https://finalearth.com/api/${category}?key=${apiKey}${idQuery}`,
+        url: `https://www.finalearth.com/api/${category}?key=${apiKey}${idQuery}`,
         method: "GET",
         category,
     };
