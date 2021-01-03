@@ -1,15 +1,24 @@
 import { Stream, default as xs } from "xstream";
 import delay from "xstream/extra/delay";
 import dropRepeats from "xstream/extra/dropRepeats";
+import isolate from "@cycle/isolate";
 import { Reducer, StateSource } from "@cycle/state";
+
+import { mergeSinks } from "cyclejs-utils";
 
 import produce from "immer";
 
-import { Component, isSuccess } from "common/types";
+import { Component } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
 import { APISource, APIRequest } from "../drivers/apiDriver";
-import { NotificationActions, create } from "../drivers/notificationDriver";
+import {
+    NotificationSource,
+    NotificationActions,
+} from "../drivers/notificationDriver";
+
+import { State as EventState, Event } from "./Event";
+import { State as StatisticState, Statistic } from "./Statistic";
 
 export interface State {
     settings: {
@@ -18,7 +27,7 @@ export interface State {
         war: boolean;
         statistics: boolean;
         events: boolean;
-        mails: boolean;
+        mail: boolean;
     };
 
     requests: {
@@ -27,6 +36,9 @@ export interface State {
             timestamp: number;
         };
     };
+
+    events?: EventState;
+    statistic?: StatisticState;
 }
 
 interface Props {
@@ -37,6 +49,7 @@ interface Sources {
     state: StateSource<State>;
     api: APISource;
     props: Stream<Props>;
+    notifications: NotificationSource;
 }
 
 interface Sinks {
@@ -54,20 +67,19 @@ function delayTime(period: number, timestamp?: number): number {
     }
 }
 
-export const Notifications: Component<Sources, Sinks> = ({
-    state,
-    api,
-    props,
-}) => {
-    const refreshPeriod$ = state.stream
+export const Notifications: Component<Sources, Sinks> = sources => {
+    const state$ = sources.state.stream;
+    const props$ = sources.props;
+
+    const refreshPeriod$ = state$
         .map(({ settings }) => settings.refreshPeriod)
         .compose(dropRepeats());
 
-    const requestState$ = state.stream
+    const requestState$ = state$
         .map(({ requests }) => requests.notifications)
         .compose(dropRepeats((prev, next) => prev?.status === next?.status));
 
-    const apiKey$ = props.map(({ apiKey }) => apiKey).compose(dropRepeats());
+    const apiKey$ = props$.map(({ apiKey }) => apiKey).compose(dropRepeats());
 
     const notificationRequest$ = xs
         .combine(refreshPeriod$, requestState$, apiKey$)
@@ -94,24 +106,22 @@ export const Notifications: Component<Sources, Sinks> = ({
                 war: true,
                 statistics: true,
                 events: true,
-                mails: true,
+                mail: true,
             },
             requests: {},
         })
     );
-    const notificationReducer$ = api
-        .response("notifications")
-        .filter(isSuccess)
-        .mapTo(
-            OptReducer((prevState: State) =>
-                produce(prevState, draft => {
-                    const request = draft.requests.notifications;
-                    if (request) {
-                        request.status = "received";
-                    }
-                })
-            )
-        );
+
+    const requestReducer$ = sources.api.response("notifications").mapTo(
+        OptReducer((prevState: State) =>
+            produce(prevState, draft => {
+                const request = draft.requests.notifications;
+                if (request) {
+                    request.status = "received";
+                }
+            })
+        )
+    );
 
     const sentReducer$ = notificationRequest$.mapTo(
         OptReducer((prevState: State) =>
@@ -124,9 +134,26 @@ export const Notifications: Component<Sources, Sinks> = ({
         )
     );
 
-    return {
-        api: notificationRequest$,
-        state: xs.merge(initialReducer$, notificationReducer$, sentReducer$),
-        notifications: xs.empty(),
+    const eventSources = {
+        ...sources,
+        props: state$.map(state => ({ active: state.settings.events })),
     };
+
+    const eventSinks = isolate(Event, { state: "events" })(eventSources);
+
+    const statisticSources = {
+        ...sources,
+        props: state$.map(state => ({ active: state.settings.statistics })),
+    };
+
+    const statisticSinks = isolate(Statistic, { state: "statistic" })(
+        statisticSources
+    );
+
+    const ownSinks = {
+        api: notificationRequest$,
+        state: xs.merge(initialReducer$, requestReducer$, sentReducer$),
+    };
+
+    return mergeSinks([ownSinks, eventSinks, statisticSinks]);
 };

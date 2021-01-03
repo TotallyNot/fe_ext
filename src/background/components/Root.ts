@@ -5,7 +5,11 @@ import { mergeSinks } from "cyclejs-utils";
 import isolate from "@cycle/isolate";
 
 import { APISource, APIRequest } from "../drivers/apiDriver";
-import { NotificationActions } from "../drivers/notificationDriver";
+import {
+    NotificationSource,
+    NotificationActions,
+} from "../drivers/notificationDriver";
+import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 
 import { APIKey, State as APIKeyState } from "./APIKey";
 import { Notifications, State as NotificationsState } from "./Notifications";
@@ -18,12 +22,15 @@ export interface State {
 export interface Sources {
     state: StateSource<State>;
     api: APISource;
+    notifications: NotificationSource;
+    runtime: RuntimeSource;
 }
 
 export interface Sinks {
     state: Stream<Reducer<unknown>>;
     api: Stream<APIRequest>;
     notifications: Stream<NotificationActions>;
+    runtime: Stream<RuntimeMessage>;
 }
 
 const Root = (sources: Sources): Sinks => {
@@ -35,8 +42,7 @@ const Root = (sources: Sources): Sinks => {
     const apiKeySinks = isolate(APIKey, { state: "apiKey" })(sources);
 
     const notificationSources = {
-        api: sources.api,
-        state: sources.state,
+        ...sources,
         props: sources.state.stream.map(state => ({
             apiKey: state.apiKey?.key,
         })),

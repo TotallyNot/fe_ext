@@ -1,9 +1,9 @@
-import { Record, Literal, String, Number, Union, Static } from "runtypes";
+import { Object, Literal, String, Number, Union, Static } from "funtypes";
 
-export const FEError = Record({
+export const FEError = Object({
     error: Literal(true),
     reason: Union(Literal(false), String),
-    data: Record({
+    data: Object({
         code: Number,
     }),
 });

@@ -1,23 +1,24 @@
 import { Stream, default as xs } from "xstream";
 import { browser, Runtime } from "webextension-polyfill-ts";
+import { Object, Literal, Runtype, Static } from "funtypes";
 
-import { RuntimeMessages, Resources, ResourceUpdate } from "common/models";
+import pluck from "common/xs/pluck";
 
-type Payload<R extends Resources> = RuntimeMessages[R]["data"];
+export type RuntimeMessage = {
+    kind: string;
+    data: any;
+};
 
 export class BackgroundSource {
     private port: Runtime.Port;
 
-    private stream: Stream<any>;
+    private subscriptions: Set<string>;
+    private message$: Stream<any>;
 
-    constructor(
-        label: string,
-        resources: Resources[],
-        update$: Stream<ResourceUpdate>
-    ) {
-        this.port = browser.runtime.connect(undefined, { name: label });
+    constructor(update$: Stream<RuntimeMessage>) {
+        this.port = browser.runtime.connect();
 
-        this.stream = xs.create({
+        this.message$ = xs.create({
             start: listener =>
                 this.port.onMessage.addListener(message =>
                     listener.next(message)
@@ -25,23 +26,30 @@ export class BackgroundSource {
             stop: () => {},
         });
 
-        this.port.postMessage({ subscribe: resources });
-
         update$.addListener({
-            next: next =>
-                Object.entries(next).forEach(([resource, data]) =>
-                    this.port.postMessage({ resource, data })
-                ),
+            next: this.port.postMessage.bind(this.port),
         });
+
+        this.subscriptions = new Set();
     }
 
-    select<S extends Resources>(resource: S): Stream<Payload<S>> {
-        return this.stream
-            .filter(RuntimeMessages.fields[resource].test)
-            .map(({ data }) => data);
+    select<T extends Runtype<unknown>>(
+        kind: string,
+        type: T
+    ): Stream<Static<T>> {
+        if (!this.subscriptions.has(kind)) {
+            this.port.postMessage({ subscribe: [kind] });
+            this.subscriptions.add(kind);
+        }
+
+        const Message = Object({
+            kind: Literal(kind),
+            data: type,
+        });
+
+        return this.message$.filter(Message.test).compose(pluck("data"));
     }
 }
 
-export const BackgroundDriver = (label: string, resources: Resources[]) => (
-    update$: Stream<ResourceUpdate>
-) => new BackgroundSource(label, resources, update$);
+export const BackgroundDriver = () => (update$: Stream<RuntimeMessage>) =>
+    new BackgroundSource(update$);

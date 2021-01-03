@@ -1,90 +1,86 @@
 import { Stream, Subscription, default as xs } from "xstream";
 import { browser, Runtime } from "webextension-polyfill-ts";
 
-import {
-    RuntimeMessages,
-    Resources,
-    RuntimeSubscription,
-    ResourceUpdate,
-    ResourceList,
-} from "common/models/runtime";
+import { Object, Array, String, Literal, Runtype, Static } from "funtypes";
+
 import { isSome } from "common/types";
 
+export type RuntimeMessage = {
+    kind: string;
+    data: any;
+};
+
+const SubscribeRequest = Object({
+    subscribe: Array(String),
+});
+
 export class RuntimeSource {
-    private resources: { [K in Resources]?: Stream<ResourceUpdate[K]> };
     private subscriptions: Map<Runtime.Port, Subscription[]>;
 
-    private update$: Stream<any>;
+    private message$: Stream<any>;
 
-    constructor(update$: Stream<ResourceUpdate>) {
-        this.resources = Object.fromEntries(
-            ResourceList.map(resource => [
-                resource,
-                update$
-                    .map(update => update[resource])
-                    .filter(isSome)
-                    .debug(resource)
-                    .remember(),
-            ])
-        );
+    constructor(update$: Stream<RuntimeMessage>) {
+        const state$ = update$
+            .fold((acc, { kind, data }) => {
+                acc.set(kind, data);
+                return acc;
+            }, new Map<string, any>())
+            .remember();
 
-        // add empty listener in order to start stream
-        Object.values(this.resources).forEach(stream =>
-            stream?.addListener({})
-        );
+        // start stream
+        state$.addListener({});
 
         this.subscriptions = new Map();
-        this.update$ = xs.create({
+        this.message$ = xs.create({
             start: listener =>
                 browser.runtime.onConnect.addListener(port => {
-                    port.onDisconnect.addListener(() =>
+                    port.onDisconnect.addListener(() => {
                         this.subscriptions
                             .get(port)
-                            ?.forEach(subscription =>
-                                subscription.unsubscribe()
-                            )
-                    );
+                            ?.forEach(sub => sub.unsubscribe());
+
+                        this.subscriptions.delete(port);
+                    });
 
                     port.onMessage.addListener(message => {
-                        if (RuntimeSubscription.test(message)) {
-                            message.subscribe.forEach(resource => {
-                                const subscription = this.resources[
-                                    resource
-                                ]?.subscribe({
-                                    next: (next: any) =>
-                                        port.postMessage({
-                                            resource,
-                                            data: next,
-                                        }),
-                                });
-                                if (subscription) {
-                                    this.subscriptions.set(
-                                        port,
-                                        (
-                                            this.subscriptions.get(port) ?? []
-                                        ).concat([subscription])
-                                    );
+                        if (SubscribeRequest.test(message)) {
+                            message.subscribe.forEach(kind => {
+                                const subs = this.subscriptions.get(port) ?? [];
+                                if (!this.subscriptions.has(port)) {
+                                    this.subscriptions.set(port, subs);
                                 }
+                                const sub = state$
+                                    .map(state => state.get(kind))
+                                    .filter(isSome)
+                                    .subscribe({
+                                        next: data =>
+                                            port.postMessage({ kind, data }),
+                                    });
+                                subs?.push(sub);
                             });
+                        } else {
+                            listener.next(message);
                         }
-
-                        listener.next(message);
                     });
                 }),
             stop: () => {},
         });
         // see above
-        this.update$.addListener({});
+        this.message$.addListener({});
     }
 
-    update<K extends Resources>(
-        resource: K
-    ): Stream<RuntimeMessages[K]["data"]> {
-        return this.update$
-            .filter(RuntimeMessages.fields[resource].test)
-            .map(({ data }) => data);
+    select<T extends Runtype<unknown>>(
+        kind: string,
+        type: T
+    ): Stream<Static<T>> {
+        const Message = Object({
+            kind: Literal(kind),
+            data: type,
+        });
+
+        return this.message$.filter(Message.test).map(({ data }) => data);
     }
 }
 
-export const RuntimeDriver = () => (update$: Stream<ResourceUpdate>) =>
+export const RuntimeDriver = () => (update$: Stream<RuntimeMessage>) =>
     new RuntimeSource(update$);

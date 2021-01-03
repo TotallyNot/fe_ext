@@ -1,17 +1,17 @@
-import { Record, String, Number, Boolean, Array, Static } from "runtypes";
+import { Object, String, Number, Boolean, Array, Static } from "funtypes";
 
-export const FENotifications = Record({
-    timers: Record({
+export const FENotifications = Object({
+    timers: Object({
         statistics: Number,
         operations: Number,
         politics: Number,
         war: Number,
     }),
-    training: Record({
+    training: Object({
         currentlyTraining: Number,
         endTime: Number,
         hasUpdated: Boolean,
-        modifiedStats: Record({
+        modifiedStats: Object({
             communication: Number,
             intelligence: Number,
             leadership: Number,
@@ -19,13 +19,13 @@ export const FENotifications = Record({
         }),
         queueSize: Number,
         queued: Array(
-            Record({
+            Object({
                 ID: String,
                 stat: String,
             })
         ),
         serverTime: Number,
-        stats: Record({
+        stats: Object({
             communication: Number,
             intelligence: Number,
             leadership: Number,

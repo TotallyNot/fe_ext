@@ -1,18 +1,22 @@
-import { Union, Record, Literal, Runtype, Static } from "runtypes";
+import { Union, Object, Literal, Runtype, Static } from "funtypes";
 
 import { FEError } from "./error";
 export { FEError } from "./error";
 
 import { FENotifications } from "./notifications";
+import { User } from "./user";
 
-const makeResponse = <T extends Runtype>(type: T) =>
+export * from "./runtime";
+
+const makeResponse = <T extends Runtype<unknown>>(type: T) =>
     Union(
         FEError,
-        Record({ error: Literal(false), reason: Literal(false), data: type })
+        Object({ error: Literal(false), reason: Literal(false), data: type })
     );
 
-export const API = Record({
+export const API = Object({
     notifications: makeResponse(FENotifications),
+    user: makeResponse(User),
 });
 
 export type API = Static<typeof API>;

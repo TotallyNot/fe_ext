@@ -1,28 +1,54 @@
 import { Stream, default as xs } from "xstream";
 
-import { DOMSource, VNode, div } from "@cycle/dom";
+import { MainDOMSource, VNode, div } from "@cycle/dom";
+import { withState, StateSource, Reducer } from "@cycle/state";
+import isolate from "@cycle/isolate";
 
-import { BackgroundSource } from "common/drivers/backgroundDriver";
-import { ResourceUpdate } from "common/models/runtime";
+import { mergeSinks } from "cyclejs-utils";
+
+import {
+    BackgroundSource,
+    RuntimeMessage,
+} from "common/drivers/backgroundDriver";
+import { APIKey } from "common/models/runtime";
 import { Component } from "common/types";
 
+import { login, State as LoginState } from "./login";
+
+interface State {
+    login?: LoginState;
+}
+
 interface Sources {
-    DOM: DOMSource;
+    DOM: MainDOMSource;
     background: BackgroundSource;
+    state: StateSource<State>;
 }
 
-interface Sinks {
+export interface Sinks {
     DOM: Stream<VNode>;
-    background: Stream<ResourceUpdate>;
+    background: Stream<RuntimeMessage>;
+    state: Stream<Reducer<unknown>>;
 }
 
-export const Root: Component<Sources, Sinks> = sources => {
+const Root: Component<Sources, Sinks> = sources => {
+    const loginSinks = isolate(login, { state: "login" })(sources);
+
+    const ownSinks = {
+        background: xs.never<RuntimeMessage>(),
+    };
+
+    return mergeSinks([ownSinks, loginSinks]);
+
+    /*
     const popup$ = sources.background
-        .select("apiKey")
+        .select("apiKey", APIKey)
         .map(({ key }) => div(key));
 
     return {
         DOM: popup$,
-        background: xs.empty(),
-    };
+        background: xs.of({ kind: "apiKey", data: { key: "CeQAoS53hk" } }),
+    }; */
 };
+
+export default withState(Root);

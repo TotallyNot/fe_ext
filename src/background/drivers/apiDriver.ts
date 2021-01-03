@@ -58,12 +58,12 @@ export class APISource {
             .flatten()
             .map(
                 (body): APIResult<K> => {
-                    if (error.guard(body)) {
+                    if (error.test(body)) {
                         return {
                             type: "failure",
                             data: { code: body.data.code },
                         };
-                    } else if (payload.guard(body)) {
+                    } else if (payload.test(body)) {
                         return { type: "success", data: body.data };
                     } else {
                         return {
@@ -92,7 +92,7 @@ export class APISource {
                     )
             )
             .flatten()
-            .filter(FEError.guard);
+            .filter(FEError.test);
     }
 }
 
