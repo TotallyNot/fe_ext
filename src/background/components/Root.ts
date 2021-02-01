@@ -11,13 +11,17 @@ import {
 } from "../drivers/notificationDriver";
 import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 
-import { APIKey, State as APIKeyState } from "./APIKey";
-import { Notifications, State as NotificationsState } from "./Notifications";
+import { APIKey, APIKeyState } from "./APIKey";
+import { Notifications, NotificationsState } from "./Notifications";
 
 export interface State {
     apiKey?: APIKeyState;
     notifications?: NotificationsState;
 }
+
+export type ChildState<K extends keyof State> = {
+    global: Omit<State, K>;
+} & State[K];
 
 export interface Sources {
     state: StateSource<State>;
@@ -33,27 +37,43 @@ export interface Sinks {
     runtime: Stream<RuntimeMessage>;
 }
 
+const stateLens = <K extends keyof State>(key: K) => ({
+    get: (state?: State): ChildState<K> | undefined => {
+        if (state?.[key]) {
+            const { [key]: own, ...global } = state;
+            return { global, ...own };
+        } else {
+            return undefined;
+        }
+    },
+    set: (state?: State, childState?: ChildState<K>): State | undefined => {
+        if (childState) {
+            const { global: _, ...own } = childState;
+            return {
+                ...state,
+                [key]: own,
+            };
+        } else {
+            return state;
+        }
+    },
+});
+
 const Root = (sources: Sources): Sinks => {
     sources.state.stream.addListener({
         next: next => console.log(next),
         error: error => console.log(error),
     });
 
-    const apiKeySinks = isolate(APIKey, { state: "apiKey" })(sources);
+    const apiKeySinks = isolate(APIKey, { state: stateLens("apiKey") })(
+        sources
+    );
 
-    const notificationSources = {
-        ...sources,
-        props: sources.state.stream.map(state => ({
-            apiKey: state.apiKey?.key,
-        })),
-    };
     const notificationsSinks = isolate(Notifications, {
-        state: "notifications",
-    })(notificationSources);
+        state: stateLens("notifications"),
+    })(sources);
 
-    const ownSinks = {};
-
-    return mergeSinks([notificationsSinks, apiKeySinks, ownSinks]);
+    return mergeSinks([apiKeySinks, notificationsSinks]);
 };
 
 export default withState(Root);

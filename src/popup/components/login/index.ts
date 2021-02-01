@@ -7,9 +7,13 @@ import { view } from "./view";
 
 const login = (sources: Sources) => {
     const actions = intent(sources);
+    const { DOM } = view(sources.state);
+
+    // get state stream started :/
+    sources.state.stream.endWhen(DOM).addListener({});
 
     return {
-        DOM: view(sources.state).DOM,
+        DOM: DOM,
         state: model(actions).state,
         background: xs
             .combine(actions.input$, actions.login$)

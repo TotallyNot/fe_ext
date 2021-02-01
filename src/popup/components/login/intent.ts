@@ -28,9 +28,6 @@ export const intent = (sources: Sources) => {
         .filter(({ success }) => success)
         .mapTo("/popup" as HistoryInput);
 
-    // start state stream :/
-    sources.state.stream.take(1).addListener({});
-
     return {
         login$: sources.DOM.select("button")
             .events("click")

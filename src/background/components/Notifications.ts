@@ -8,7 +8,7 @@ import { mergeSinks } from "cyclejs-utils";
 
 import produce from "immer";
 
-import { Component } from "common/types";
+import { Component, isSome } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
 import { APISource, APIRequest } from "../drivers/apiDriver";
@@ -17,10 +17,12 @@ import {
     NotificationActions,
 } from "../drivers/notificationDriver";
 
+import { ChildState } from "./Root";
+
 import { State as EventState, Event } from "./Event";
 import { State as StatisticState, Statistic } from "./Statistic";
 
-export interface State {
+export interface NotificationsState {
     settings: {
         refreshPeriod: number;
 
@@ -41,19 +43,16 @@ export interface State {
     statistic?: StatisticState;
 }
 
-interface Props {
-    apiKey: string | undefined;
-}
+type State = ChildState<"notifications">;
 
 interface Sources {
-    state: StateSource<State>;
+    state: StateSource<State | undefined>;
     api: APISource;
-    props: Stream<Props>;
     notifications: NotificationSource;
 }
 
 interface Sinks {
-    state: Stream<Reducer<State>>;
+    state: Stream<Reducer<unknown>>;
     api: Stream<APIRequest>;
     notifications: Stream<NotificationActions>;
 }
@@ -68,8 +67,7 @@ function delayTime(period: number, timestamp?: number): number {
 }
 
 export const Notifications: Component<Sources, Sinks> = sources => {
-    const state$ = sources.state.stream;
-    const props$ = sources.props;
+    const state$ = sources.state.stream.filter(isSome);
 
     const refreshPeriod$ = state$
         .map(({ settings }) => settings.refreshPeriod)
@@ -79,7 +77,11 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         .map(({ requests }) => requests.notifications)
         .compose(dropRepeats((prev, next) => prev?.status === next?.status));
 
-    const apiKey$ = props$.map(({ apiKey }) => apiKey).compose(dropRepeats());
+    const apiKey$ = state$
+        .map(({ global }) => global.apiKey)
+        .filter(isSome)
+        .map(({ confirmed, key }) => (confirmed ? key : undefined))
+        .compose(dropRepeats());
 
     const notificationRequest$ = xs
         .combine(refreshPeriod$, requestState$, apiKey$)
@@ -100,6 +102,8 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const initialReducer$ = xs.of(
         InitReducer<State>({
+            global: {},
+
             settings: {
                 refreshPeriod: 30,
 

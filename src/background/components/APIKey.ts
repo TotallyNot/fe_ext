@@ -1,24 +1,26 @@
 import { Stream, default as xs } from "xstream";
 import { Reducer, StateSource } from "@cycle/state";
-import sampleCombine from "xstream/extra/sampleCombine";
+import produce from "immer";
 
-import { createReducer } from "common/state";
-
-import { APISource, APIRequest } from "../drivers/apiDriver";
-import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
-
-import { isFailure } from "common/types";
+import { createReducer, OptReducer, InitReducer } from "common/state";
+import { isFailure, isSome } from "common/types";
 import { APIKey as APIKeyMessage } from "common/models/runtime";
 import pluck from "common/xs/pluck";
 
-export interface State {
+import { APISource, APIRequest } from "../drivers/apiDriver";
+import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
+import { ChildState } from "./Root";
+
+export interface APIKeyState {
     key?: string;
     message?: string;
     confirmed?: boolean;
 }
 
+type State = ChildState<"apiKey">;
+
 interface Sources {
-    state: StateSource<State>;
+    state: StateSource<State | undefined>;
     api: APISource;
     runtime: RuntimeSource;
 }
@@ -32,7 +34,9 @@ interface Sinks {
 export const APIKey = (sources: Sources): Sinks => {
     const error$ = sources.api.errors();
 
-    const initial$ = xs.of(createReducer<State>({}).build());
+    const initial$ = xs.of(
+        InitReducer<State>({ global: {} })
+    );
 
     const key$ = sources.runtime
         .select("apiKey", APIKeyMessage)
@@ -45,40 +49,47 @@ export const APIKey = (sources: Sources): Sinks => {
     const invalid$ = error$
         .filter(error => error.data.code === 1)
         .mapTo(
-            createReducer<State>({
+            OptReducer((_state: State) => ({
+                global: {},
                 key: undefined,
                 confirmed: false,
                 message: "Key is invalid!",
-            }).build()
+            }))
         );
 
-    const newKey$ = key$.map(key =>
-        createReducer<State>({ key, confirmed: false }).build()
+    const newKey$ = key$.map(
+        (key): Reducer<State> => () => ({
+            key,
+            confirmed: false,
+            global: {},
+        })
     );
 
-    const confirm$ = sources.api
-        .response("user")
-        .compose(sampleCombine(sources.state.stream))
-        .map(([response, state]) =>
-            createReducer(state)
-                .add(prev => ({
-                    key: isFailure(response) ? undefined : prev.key,
-                    message: isFailure(response)
-                        ? response.data.reason
-                        : undefined,
-                    confirmed: !isFailure(response),
-                }))
-                .build()
-        );
+    const confirm$ = sources.api.response("user").map(response =>
+        OptReducer((state: State) =>
+            produce(state, draft => {
+                if (isFailure(response)) {
+                    draft.key = undefined;
+                    draft.message = response.data.reason;
+                    draft.confirmed = undefined;
+                } else {
+                    draft.confirmed = true;
+                    draft.message = undefined;
+                }
+            })
+        )
+    );
 
     return {
         state: xs.merge(initial$, invalid$, newKey$, confirm$),
         api: verifyRequest$,
-        runtime: sources.state.stream.map(({ confirmed, message }) => ({
-            kind: "apiKeyResponse",
-            data: confirmed
-                ? { success: true }
-                : { success: false, reason: message },
-        })),
+        runtime: sources.state.stream
+            .filter(isSome)
+            .map(({ confirmed, message }) => ({
+                kind: "apiKeyResponse",
+                data: confirmed
+                    ? { success: true }
+                    : { success: false, reason: message },
+            })),
     };
 };

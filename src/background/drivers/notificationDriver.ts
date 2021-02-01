@@ -16,7 +16,7 @@ export type NotificationActions = CreateNotification | ClearNotification;
 
 export type NotificationEvent = {
     id: string;
-    kind: "create" | "clear";
+    kind: "create" | "clear" | "dismissed";
 };
 
 export const create = (
@@ -46,6 +46,7 @@ export class NotificationSource {
 
     constructor(action$: Stream<NotificationActions>) {
         let subscription: Subscription | undefined = undefined;
+        let callback: any;
         this.stream = xs.create({
             start: listener => {
                 subscription = action$.subscribe({
@@ -71,8 +72,14 @@ export class NotificationSource {
                         }
                     },
                 });
+                callback = (id: string) =>
+                    listener.next({ kind: "dismissed", id });
+                browser.notifications.onClosed.addListener(callback);
             },
-            stop: () => subscription?.unsubscribe(),
+            stop: () => {
+                subscription?.unsubscribe();
+                browser.notifications.onClosed.removeListener(callback);
+            },
         });
     }
 }

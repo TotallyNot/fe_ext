@@ -1,4 +1,6 @@
 import { Stream, default as xs } from "xstream";
+import delay from "xstream/extra/delay";
+import sampleCombine from "xstream/extra/sampleCombine";
 import dropRepeats from "xstream/extra/dropRepeats";
 import { Reducer, StateSource } from "@cycle/state";
 
@@ -18,6 +20,7 @@ import {
 export interface State {
     shown: boolean;
     dismissed: boolean;
+    lastTrained?: number;
 }
 
 interface Props {
@@ -36,38 +39,61 @@ interface Sinks {
     notifications: Stream<NotificationActions>;
 }
 
+const stats: { [key: number]: string } = {
+    1: "strength",
+    2: "intelligence",
+    3: "leadership",
+    4: "communication",
+};
+
 export const Statistic: Component<Sources, Sinks> = ({
     state,
     api,
     props,
     notifications,
 }) => {
-    const empty$ = api
+    const response$ = api
         .response("notifications")
         .filter(isSuccess)
-        .map(({ data }) => Date.now() - data.timers.statistics * 1000 > 0)
-        .compose(dropRepeats());
+        .map(({ data }) => data)
+        .remember();
 
-    const input$ = xs.combine(state.stream, props, empty$);
-
-    const create$ = input$
-        .filter(
-            ([state, { active }, empty]) =>
-                !state.shown && !state.dismissed && active && empty
+    const create$ = xs
+        .combine(response$, props, state.stream)
+        .map(([data, props, state]) =>
+            data.training.queued.length === 0 &&
+            props.active &&
+            !state.dismissed &&
+            !state.shown
+                ? xs
+                      .of(state.lastTrained)
+                      .compose(
+                          delay(
+                              Math.max(
+                                  0,
+                                  data.timers.statistics * 1000 - Date.now()
+                              )
+                          )
+                      )
+                : xs.empty<number | undefined>()
         )
-        .mapTo(
+        .flatten()
+        .map(lastTrained =>
             create("statistic", {
                 title: "Your training queue is empty!",
-                message: "",
+                message: lastTrained
+                    ? `You finished training your ${stats[lastTrained]}.`
+                    : "",
                 iconUrl: "placeholder.png",
                 type: "basic",
             })
         );
 
-    const clear$ = input$
+    const clear$ = response$
         .filter(
-            ([state, { active }, empty]) =>
-                state.shown && (state.dismissed || !active || !empty)
+            data =>
+                data.training.queued.length > 0 ||
+                data.timers.statistics * 1000 > Date.now()
         )
         .mapTo(clear("statistic"));
 
@@ -82,7 +108,19 @@ export const Statistic: Component<Sources, Sinks> = ({
                         draft.shown = false;
                         draft.dismissed = false;
                         break;
+                    case "dismissed":
+                        draft.dismissed = true;
+                        break;
                 }
+            })
+        )
+    );
+
+    const responseReducer$ = response$.map(data =>
+        OptReducer(
+            (prev: State): State => ({
+                ...prev,
+                lastTrained: data.training.currentlyTraining,
             })
         )
     );
@@ -93,6 +131,6 @@ export const Statistic: Component<Sources, Sinks> = ({
 
     return {
         notifications: xs.merge(create$, clear$),
-        state: xs.merge(initReducer$, notificationReducer$),
+        state: xs.merge(initReducer$, notificationReducer$, responseReducer$),
     };
 };
