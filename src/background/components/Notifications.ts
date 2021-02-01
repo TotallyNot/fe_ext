@@ -22,6 +22,7 @@ import { ChildState } from "./Root";
 import { State as EventState, Event } from "./Event";
 import { State as MailState, Mail } from "./Mail";
 import { State as StatisticState, Statistic } from "./Statistic";
+import { State as WarState, War } from "./War";
 
 export interface NotificationsState {
     settings: {
@@ -43,6 +44,7 @@ export interface NotificationsState {
     events?: EventState;
     statistic?: StatisticState;
     mail?: MailState;
+    war?: WarState;
 }
 
 type State = ChildState<"notifications">;
@@ -63,7 +65,6 @@ function delayTime(period: number, timestamp?: number): number {
     if (!timestamp) {
         return 0;
     } else {
-        console.log(1000 * period + timestamp - Date.now());
         return 1000 * period + timestamp - Date.now();
     }
 }
@@ -163,10 +164,23 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         statisticSources
     );
 
+    const warSources = {
+        ...sources,
+        props: state$.map(state => ({ active: state.settings.war })),
+    };
+
+    const warSinks = isolate(War, { state: "war" })(warSources);
+
     const ownSinks = {
         api: notificationRequest$,
         state: xs.merge(initialReducer$, requestReducer$, sentReducer$),
     };
 
-    return mergeSinks([ownSinks, eventSinks, statisticSinks, mailSinks]);
+    return mergeSinks([
+        ownSinks,
+        eventSinks,
+        statisticSinks,
+        mailSinks,
+        warSinks,
+    ]);
 };
