@@ -36,7 +36,7 @@ interface Sinks {
     notifications: Stream<NotificationActions>;
 }
 
-export const Event: Component<Sources, Sinks> = ({
+export const Mail: Component<Sources, Sinks> = ({
     state,
     api,
     props,
@@ -45,7 +45,7 @@ export const Event: Component<Sources, Sinks> = ({
     const unread$ = api
         .response("notifications")
         .filter(isSuccess)
-        .map(({ data }) => data.unreadEvents)
+        .map(({ data }) => data.unreadMails)
         .compose(dropRepeats());
 
     const input$ = xs.combine(state.stream, props, unread$);
@@ -56,17 +56,17 @@ export const Event: Component<Sources, Sinks> = ({
                 !state.shown && !state.dismissed && active && unread > 0
         )
         .map(([_state, _props, unread]) =>
-            create("event", {
-                title: `You have ${unread} new event${unread > 1 ? "s" : ""}!`,
+            create("mail", {
+                title: `You have ${unread} new mail${unread > 1 ? "s" : ""}!`,
                 message: "",
                 iconUrl: "placeholder.png",
                 type: "basic",
             })
         );
 
-    const clear$ = unread$.filter(unread => unread === 0).mapTo(clear("event"));
+    const clear$ = unread$.filter(unread => unread === 0).mapTo(clear("mail"));
 
-    const notificationReducer$ = notifications.select("event").map(event =>
+    const notificationReducer$ = notifications.select("mail").map(event =>
         OptReducer((prev: State) =>
             produce(prev, draft => {
                 switch (event.kind) {

@@ -20,6 +20,7 @@ import {
 import { ChildState } from "./Root";
 
 import { State as EventState, Event } from "./Event";
+import { State as MailState, Mail } from "./Mail";
 import { State as StatisticState, Statistic } from "./Statistic";
 
 export interface NotificationsState {
@@ -41,6 +42,7 @@ export interface NotificationsState {
 
     events?: EventState;
     statistic?: StatisticState;
+    mail?: MailState;
 }
 
 type State = ChildState<"notifications">;
@@ -145,6 +147,13 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const eventSinks = isolate(Event, { state: "events" })(eventSources);
 
+    const mailSources = {
+        ...sources,
+        props: state$.map(state => ({ active: state.settings.mail })),
+    };
+
+    const mailSinks = isolate(Mail, { state: "mail" })(mailSources);
+
     const statisticSources = {
         ...sources,
         props: state$.map(state => ({ active: state.settings.statistics })),
@@ -159,5 +168,5 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         state: xs.merge(initialReducer$, requestReducer$, sentReducer$),
     };
 
-    return mergeSinks([ownSinks, eventSinks, statisticSinks]);
+    return mergeSinks([ownSinks, eventSinks, statisticSinks, mailSinks]);
 };

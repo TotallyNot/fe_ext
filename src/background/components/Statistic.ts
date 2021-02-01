@@ -1,7 +1,5 @@
 import { Stream, default as xs } from "xstream";
 import delay from "xstream/extra/delay";
-import sampleCombine from "xstream/extra/sampleCombine";
-import dropRepeats from "xstream/extra/dropRepeats";
 import { Reducer, StateSource } from "@cycle/state";
 
 import produce from "immer";
