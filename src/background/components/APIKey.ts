@@ -32,9 +32,7 @@ interface Sinks {
 export const APIKey = (sources: Sources): Sinks => {
     const error$ = sources.api.errors();
 
-    const initial$ = xs.of(
-        createReducer<State>({ key: "CeQAoS53hk" }).build()
-    );
+    const initial$ = xs.of(createReducer<State>({}).build());
 
     const key$ = sources.runtime
         .select("apiKey", APIKeyMessage)
@@ -74,7 +72,7 @@ export const APIKey = (sources: Sources): Sinks => {
         );
 
     return {
-        state: xs.merge(invalid$, newKey$, confirm$),
+        state: xs.merge(initial$, invalid$, newKey$, confirm$),
         api: verifyRequest$,
         runtime: sources.state.stream.map(({ confirmed, message }) => ({
             kind: "apiKeyResponse",

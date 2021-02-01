@@ -1,7 +1,6 @@
-import { default as xs } from "xstream";
-
 import { MainDOMSource } from "@cycle/dom";
 import { StateSource } from "@cycle/state";
+import { HistoryInput } from "@cycle/history";
 
 import pluck from "common/xs/pluck";
 import { State } from "./model";
@@ -22,9 +21,15 @@ export const intent = (sources: Sources) => {
     );
 
     const error$ = response$
-        .debug()
         .filter(({ success }) => !success)
         .compose(pluck("reason"));
+
+    const loggedIn$ = response$
+        .filter(({ success }) => success)
+        .mapTo("/popup" as HistoryInput);
+
+    // start state stream :/
+    sources.state.stream.take(1).addListener({});
 
     return {
         login$: sources.DOM.select("button")
@@ -34,6 +39,7 @@ export const intent = (sources: Sources) => {
             .events("change")
             .map(event => (event.target as HTMLInputElement).value),
         error$,
+        loggedIn$,
     };
 };
 

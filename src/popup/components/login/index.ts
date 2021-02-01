@@ -1,15 +1,11 @@
 import xs from "xstream";
-
-import { Component } from "common/types";
-import { Sinks } from "../Root";
+import { withState } from "@cycle/state";
 
 import { intent, Sources } from "./intent";
 import { model } from "./model";
 import { view } from "./view";
 
-export { State } from "./model";
-
-export const login: Component<Sources, Partial<Sinks>> = sources => {
+const login = (sources: Sources) => {
     const actions = intent(sources);
 
     return {
@@ -18,5 +14,8 @@ export const login: Component<Sources, Partial<Sinks>> = sources => {
         background: xs
             .combine(actions.input$, actions.login$)
             .map(([key, _]) => ({ kind: "apiKey", data: { key } })),
+        history: actions.loggedIn$,
     };
 };
+
+export default withState(login);
