@@ -21,20 +21,22 @@ export const intent = (sources: Sources) => {
     );
 
     const error$ = response$
-        .filter(({ success }) => !success)
+        .filter(({ error }) => error)
         .compose(pluck("reason"));
 
     const loggedIn$ = response$
-        .filter(({ success }) => success)
+        .filter(({ loggedIn }) => loggedIn)
         .mapTo("/popup" as HistoryInput);
 
+    const login$ = sources.DOM.select("form")
+        .events("submit")
+        .map(event => {
+            event.preventDefault();
+            return (event.target as any).elements.key.value as string;
+        });
+
     return {
-        login$: sources.DOM.select("button")
-            .events("click")
-            .mapTo(undefined),
-        input$: sources.DOM.select("input")
-            .events("change")
-            .map(event => (event.target as HTMLInputElement).value),
+        login$,
         error$,
         loggedIn$,
     };

@@ -1,4 +1,4 @@
-import { Stream, default as xs } from "xstream";
+import { Stream } from "xstream";
 import { StateSource, Reducer, withState } from "@cycle/state";
 import { mergeSinks } from "cyclejs-utils";
 
@@ -20,7 +20,7 @@ export interface State {
 }
 
 export type ChildState<K extends keyof State> = {
-    global: Omit<State, K>;
+    global?: Omit<State, K>;
 } & State[K];
 
 export interface Sources {

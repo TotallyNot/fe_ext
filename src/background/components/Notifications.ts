@@ -81,7 +81,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         .compose(dropRepeats((prev, next) => prev?.status === next?.status));
 
     const apiKey$ = state$
-        .map(({ global }) => global.apiKey)
+        .map(({ global }) => global?.apiKey)
         .filter(isSome)
         .map(({ confirmed, key }) => (confirmed ? key : undefined))
         .compose(dropRepeats());
@@ -105,8 +105,6 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const initialReducer$ = xs.of(
         InitReducer<State>({
-            global: {},
-
             settings: {
                 refreshPeriod: 30,
 

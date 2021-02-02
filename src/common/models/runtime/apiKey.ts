@@ -5,7 +5,8 @@ export const APIKey = Object({
 });
 
 export const APIKeyResponse = Object({
-    success: Boolean,
+    loggedIn: Boolean,
+    error: Boolean,
     reason: String.Or(Undefined),
 });
 

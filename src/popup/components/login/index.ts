@@ -1,4 +1,3 @@
-import xs from "xstream";
 import { withState } from "@cycle/state";
 
 import { intent, Sources } from "./intent";
@@ -7,7 +6,7 @@ import { view } from "./view";
 
 const login = (sources: Sources) => {
     const actions = intent(sources);
-    const { DOM } = view(sources.state);
+    const DOM = view(sources.state);
 
     // get state stream started :/
     sources.state.stream.endWhen(DOM).addListener({});
@@ -15,9 +14,10 @@ const login = (sources: Sources) => {
     return {
         DOM: DOM,
         state: model(actions).state,
-        background: xs
-            .combine(actions.input$, actions.login$)
-            .map(([key, _]) => ({ kind: "apiKey", data: { key } })),
+        background: actions.login$.map(key => ({
+            kind: "apiKey",
+            data: { key },
+        })),
         history: actions.loggedIn$,
     };
 };

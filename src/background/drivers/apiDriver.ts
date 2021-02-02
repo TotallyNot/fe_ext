@@ -32,7 +32,7 @@ export class APISource {
 
     constructor(apiRequest$: Stream<APIRequest>) {
         const request$ = apiRequest$.map(toRequest);
-        this.http = makeHTTPDriver()(request$.debug("api driver"));
+        this.http = makeHTTPDriver()(request$);
     }
 
     response<K extends keyof API>(

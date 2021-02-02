@@ -11,9 +11,12 @@ const prelude = (sources: Sources): Partial<Sinks> => {
     );
 
     return {
-        history: response$.map(
-            (response): HistoryInput => (response.success ? "/popup" : "/login")
-        ),
+        history: response$
+            .debug()
+            .map(
+                (response): HistoryInput =>
+                    response.loggedIn ? "/popup" : "/login"
+            ),
     };
 };
 

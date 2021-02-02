@@ -23,11 +23,11 @@ export const model = ({ login$, error$ }: Inputs): Sinks => {
     const waitReducer$ = login$.mapTo(
         OptReducer<State>(state => ({ ...state, waiting: true }))
     );
-    const errorReducer$ = error$.map(error =>
+    const errorReducer$ = error$.map(reason =>
         OptReducer<State>(_ => ({
             waiting: false,
             error: true,
-            message: error,
+            message: reason,
         }))
     );
 
