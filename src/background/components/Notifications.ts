@@ -8,10 +8,12 @@ import { mergeSinks } from "cyclejs-utils";
 
 import produce from "immer";
 
+import { NotificationInfo } from "common/models/runtime/notificationInfo";
 import { Component, isSome } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
 import { APISource, APIRequest } from "../drivers/apiDriver";
+import { RuntimeMessage } from "../drivers/runtimeDriver";
 import {
     NotificationSource,
     NotificationActions,
@@ -59,6 +61,7 @@ interface Sources {
 interface Sinks {
     state: Stream<Reducer<unknown>>;
     api: Stream<APIRequest>;
+    runtime: Stream<RuntimeMessage>;
     notifications: Stream<NotificationActions>;
 }
 
@@ -213,6 +216,35 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const troopsSinks = isolate(Troops, { state: "troops" })(sources);
 
+    const notificationInfo$ = state$
+        .map((state): NotificationInfo | undefined => {
+            if (
+                !state.statistic.timestamp ||
+                !state.war.timestamp ||
+                !state.troops.country ||
+                !state.troops.units ||
+                state.events.unread === undefined ||
+                state.mail.unread === undefined
+            ) {
+                return undefined;
+            } else {
+                return {
+                    country: state.troops.country,
+                    timers: {
+                        war: state.war.timestamp,
+                        statistics: state.statistic.timestamp,
+                    },
+
+                    units: state.troops.units,
+                    events: state.events.unread,
+                    mail: state.events.unread,
+                };
+            }
+        })
+        .filter(isSome)
+        .map(info => ({ kind: "NotificationInfo", data: info }))
+        .debug();
+
     const ownSinks = {
         api: xs.merge(notificationRequest$, countryRequest$),
         state: xs.merge(
@@ -222,6 +254,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
             sentNotificationReducer$,
             sentCountryReducer$
         ),
+        runtime: notificationInfo$,
     };
 
     return mergeSinks([
