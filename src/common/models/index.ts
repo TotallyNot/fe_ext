@@ -5,6 +5,7 @@ export { FEError } from "./error";
 
 import { FENotifications } from "./notifications";
 import { User } from "./user";
+import { Country } from "./country";
 
 export * from "./runtime";
 
@@ -17,6 +18,7 @@ const makeResponse = <T extends Runtype<unknown>>(type: T) =>
 export const API = Object({
     notifications: makeResponse(FENotifications),
     user: makeResponse(User),
+    country: makeResponse(Country),
 });
 
 export type API = Static<typeof API>;

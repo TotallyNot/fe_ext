@@ -23,6 +23,7 @@ import { State as EventState, Event } from "./Event";
 import { State as MailState, Mail } from "./Mail";
 import { State as StatisticState, Statistic } from "./Statistic";
 import { State as WarState, War } from "./War";
+import { State as TroopsState, Troops } from "./Troops";
 
 export interface NotificationsState {
     settings: {
@@ -32,10 +33,20 @@ export interface NotificationsState {
         statistics: boolean;
         events: boolean;
         mail: boolean;
+        troops: {
+            active: boolean;
+            cooldown: number;
+            axis: boolean;
+            allies: boolean;
+        };
     };
 
     requests: {
         notifications?: {
+            status: "sent" | "received" | "error";
+            timestamp: number;
+        };
+        country?: {
             status: "sent" | "received" | "error";
             timestamp: number;
         };
@@ -45,6 +56,7 @@ export interface NotificationsState {
     statistic?: StatisticState;
     mail?: MailState;
     war?: WarState;
+    troops?: TroopsState;
 }
 
 type State = ChildState<"notifications">;
@@ -76,18 +88,18 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         .map(({ settings }) => settings.refreshPeriod)
         .compose(dropRepeats());
 
-    const requestState$ = state$
-        .map(({ requests }) => requests.notifications)
-        .compose(dropRepeats((prev, next) => prev?.status === next?.status));
-
     const apiKey$ = state$
         .map(({ global }) => global?.apiKey)
         .filter(isSome)
         .map(({ confirmed, key }) => (confirmed ? key : undefined))
         .compose(dropRepeats());
 
+    const notificationState$ = state$
+        .map(({ requests }) => requests.notifications)
+        .compose(dropRepeats((prev, next) => prev?.status === next?.status));
+
     const notificationRequest$ = xs
-        .combine(refreshPeriod$, requestState$, apiKey$)
+        .combine(refreshPeriod$, notificationState$, apiKey$)
         .filter(([_, request]) => request?.status !== "sent")
         .map(([period, request, apiKey]) => {
             if (!apiKey) {
@@ -96,6 +108,26 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                 return xs
                     .of<APIRequest>({
                         selection: "notifications",
+                        apiKey,
+                    })
+                    .compose(delay(delayTime(period, request?.timestamp)));
+            }
+        })
+        .flatten();
+    const countryState$ = state$
+        .map(({ requests }) => requests.country)
+        .compose(dropRepeats((prev, next) => prev?.status === next?.status));
+
+    const countryRequest$ = xs
+        .combine(refreshPeriod$, countryState$, apiKey$)
+        .filter(([_, request]) => request?.status !== "sent")
+        .map(([period, request, apiKey]) => {
+            if (!apiKey) {
+                return xs.empty();
+            } else {
+                return xs
+                    .of<APIRequest>({
+                        selection: "country",
                         apiKey,
                     })
                     .compose(delay(delayTime(period, request?.timestamp)));
@@ -112,12 +144,18 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                 statistics: true,
                 events: true,
                 mail: true,
+                troops: {
+                    active: true,
+                    axis: true,
+                    allies: true,
+                    cooldown: 60,
+                },
             },
             requests: {},
         })
     );
 
-    const requestReducer$ = sources.api.response("notifications").mapTo(
+    const notificationReducer$ = sources.api.response("notifications").mapTo(
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 const request = draft.requests.notifications;
@@ -128,10 +166,32 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const sentReducer$ = notificationRequest$.mapTo(
+    const countryReducer$ = sources.api.response("country").mapTo(
+        OptReducer((prevState: State) =>
+            produce(prevState, draft => {
+                const request = draft.requests.country;
+                if (request) {
+                    request.status = "received";
+                }
+            })
+        )
+    );
+
+    const sentNotificationReducer$ = notificationRequest$.mapTo(
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 draft.requests.notifications = {
+                    status: "sent",
+                    timestamp: Date.now(),
+                };
+            })
+        )
+    );
+
+    const sentCountryReducer$ = countryRequest$.mapTo(
+        OptReducer((prevState: State) =>
+            produce(prevState, draft => {
+                draft.requests.country = {
                     status: "sent",
                     timestamp: Date.now(),
                 };
@@ -169,9 +229,22 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const warSinks = isolate(War, { state: "war" })(warSources);
 
+    const troopsSources = {
+        ...sources,
+        props: state$.map(state => state.settings.troops),
+    };
+
+    const troopsSinks = isolate(Troops, { state: "troops" })(troopsSources);
+
     const ownSinks = {
-        api: notificationRequest$,
-        state: xs.merge(initialReducer$, requestReducer$, sentReducer$),
+        api: xs.merge(notificationRequest$, countryRequest$),
+        state: xs.merge(
+            initialReducer$,
+            notificationReducer$,
+            countryReducer$,
+            sentNotificationReducer$,
+            sentCountryReducer$
+        ),
     };
 
     return mergeSinks([
@@ -180,5 +253,6 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         statisticSinks,
         mailSinks,
         warSinks,
+        troopsSinks,
     ]);
 };
