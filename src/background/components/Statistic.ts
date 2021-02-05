@@ -5,7 +5,7 @@ import { Reducer, StateSource } from "@cycle/state";
 import produce from "immer";
 
 import { Component, isSuccess } from "common/types";
-import { OptReducer, InitReducer } from "common/state";
+import { OptReducer } from "common/state";
 
 import { APISource } from "../drivers/apiDriver";
 import {
@@ -16,19 +16,18 @@ import {
 } from "../drivers/notificationDriver";
 
 export interface State {
+    active: boolean;
     shown: boolean;
     dismissed: boolean;
-    lastTrained?: number;
-}
 
-interface Props {
-    active: boolean;
+    lastTrained?: number;
+    timestamp?: number;
+    queued?: number;
 }
 
 interface Sources {
     state: StateSource<State>;
     api: APISource;
-    props: Stream<Props>;
     notifications: NotificationSource;
 }
 
@@ -47,7 +46,6 @@ const stats: { [key: number]: string } = {
 export const Statistic: Component<Sources, Sinks> = ({
     state,
     api,
-    props,
     notifications,
 }) => {
     const response$ = api
@@ -56,21 +54,18 @@ export const Statistic: Component<Sources, Sinks> = ({
         .map(({ data }) => data)
         .remember();
 
-    const create$ = xs
-        .combine(response$, props, state.stream)
-        .map(([data, props, state]) =>
-            data.training.queued.length === 0 &&
-            props.active &&
+    const create$ = state.stream
+        .map(state =>
+            state.queued === 0 &&
+            state.timestamp &&
+            state.active &&
             !state.dismissed &&
             !state.shown
                 ? xs
                       .of(state.lastTrained)
                       .compose(
                           delay(
-                              Math.max(
-                                  0,
-                                  data.timers.statistics * 1000 - Date.now()
-                              )
+                              Math.max(0, state.timestamp * 1000 - Date.now())
                           )
                       )
                 : xs.empty<number | undefined>()
@@ -87,11 +82,12 @@ export const Statistic: Component<Sources, Sinks> = ({
             })
         );
 
-    const clear$ = response$
+    const clear$ = state.stream
         .filter(
-            data =>
-                data.training.queued.length > 0 ||
-                data.timers.statistics * 1000 > Date.now()
+            state =>
+                (state.queued !== undefined && state.queued > 0) ||
+                (state.timestamp !== undefined &&
+                    state.timestamp * 1000 > Date.now())
         )
         .mapTo(clear("statistic"));
 
@@ -115,20 +111,17 @@ export const Statistic: Component<Sources, Sinks> = ({
     );
 
     const responseReducer$ = response$.map(data =>
-        OptReducer(
-            (prev: State): State => ({
-                ...prev,
-                lastTrained: data.training.currentlyTraining,
+        OptReducer((state: State) =>
+            produce(state, draft => {
+                draft.lastTrained = data.training.currentlyTraining;
+                draft.timestamp = data.timers.statistics;
+                draft.queued = data.training.queued.length;
             })
         )
     );
 
-    const initReducer$ = xs.of(
-        InitReducer<State>({ shown: false, dismissed: false })
-    );
-
     return {
         notifications: xs.merge(create$, clear$),
-        state: xs.merge(initReducer$, notificationReducer$, responseReducer$),
+        state: xs.merge(notificationReducer$, responseReducer$),
     };
 };

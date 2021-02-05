@@ -4,8 +4,8 @@ import { Reducer, StateSource } from "@cycle/state";
 
 import produce from "immer";
 
-import { Component, isSuccess } from "common/types";
-import { OptReducer, InitReducer } from "common/state";
+import { Component, isSuccess, isSome } from "common/types";
+import { OptReducer } from "common/state";
 
 import { APISource } from "../drivers/apiDriver";
 import {
@@ -16,18 +16,16 @@ import {
 } from "../drivers/notificationDriver";
 
 export interface State {
+    active: boolean;
     shown: boolean;
     dismissed: boolean;
-}
 
-interface Props {
-    active: boolean;
+    unread?: number;
 }
 
 interface Sources {
     state: StateSource<State>;
     api: APISource;
-    props: Stream<Props>;
     notifications: NotificationSource;
 }
 
@@ -39,32 +37,34 @@ interface Sinks {
 export const Event: Component<Sources, Sinks> = ({
     state,
     api,
-    props,
     notifications,
 }) => {
-    const unread$ = api
+    const response$ = api
         .response("notifications")
         .filter(isSuccess)
         .map(({ data }) => data.unreadEvents)
         .compose(dropRepeats());
 
-    const input$ = xs.combine(state.stream, props, unread$);
-
-    const create$ = input$
-        .filter(
-            ([state, { active }, unread]) =>
-                !state.shown && !state.dismissed && active && unread > 0
-        )
-        .map(([_state, _props, unread]) =>
+    const create$ = state.stream
+        .filter(state => !state.shown && !state.dismissed && state.active)
+        .map(({ unread }) => unread)
+        .filter(isSome)
+        .filter(unread => unread !== 0)
+        .compose(dropRepeats())
+        .map(unread =>
             create("event", {
-                title: `You have ${unread} new event${unread > 1 ? "s" : ""}!`,
+                title: `You have ${unread} unread event${
+                    unread > 1 ? "s" : ""
+                }!`,
                 message: "",
                 iconUrl: "placeholder.png",
                 type: "basic",
             })
         );
 
-    const clear$ = unread$.filter(unread => unread === 0).mapTo(clear("event"));
+    const clear$ = state.stream
+        .filter(state => state.unread === 0)
+        .mapTo(clear("event"));
 
     const notificationReducer$ = notifications.select("event").map(event =>
         OptReducer((prev: State) =>
@@ -84,12 +84,20 @@ export const Event: Component<Sources, Sinks> = ({
         )
     );
 
-    const initReducer$ = xs.of(
-        InitReducer<State>({ shown: false, dismissed: false })
+    const responseReducer$ = response$.map(unread =>
+        OptReducer((state: State) =>
+            produce(state, draft => {
+                if (unread !== state.unread) {
+                    draft.unread = unread;
+                    draft.shown = false;
+                    draft.dismissed = false;
+                }
+            })
+        )
     );
 
     return {
         notifications: xs.merge(create$, clear$),
-        state: xs.merge(initReducer$, notificationReducer$),
+        state: xs.merge(responseReducer$, notificationReducer$),
     };
 };

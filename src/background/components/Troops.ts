@@ -15,7 +15,6 @@ import {
     NotificationSource,
     NotificationActions,
     create,
-    clear,
 } from "../drivers/notificationDriver";
 
 export interface State {
@@ -25,9 +24,7 @@ export interface State {
         axis: number;
         allies: number;
     };
-}
 
-interface Props {
     active: boolean;
     cooldown: number;
 
@@ -38,7 +35,6 @@ interface Props {
 interface Sources {
     state: StateSource<State>;
     api: APISource;
-    props: Stream<Props>;
     notifications: NotificationSource;
 }
 
@@ -53,10 +49,7 @@ export const Troops: Component<Sources, Sinks> = sources => {
         .filter(isSuccess)
         .map(({ data }) => data);
 
-    const props$ = sources.props;
     const state$ = sources.state.stream;
-
-    const initReducer$ = xs.of(InitReducer<State>({}));
 
     const responseReducer$ = response$.map(data =>
         OptReducer((state: State) =>
@@ -67,27 +60,25 @@ export const Troops: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const alliesCreate$ = props$
+    const alliesCreate$ = state$
+        .map(({ cooldown }) => cooldown)
         .compose(dropRepeats())
-        .map(({ active, allies, cooldown }) =>
-            active && allies
-                ? state$
-                      .compose(
-                          dropRepeats(
-                              (prev, curr) => prev.country === curr.country
-                          )
-                      )
-                      .mapTo(
-                          state$
-                              .map(state => state.units?.allies)
-                              .compose(pairwise)
-                              .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
-                              .compose(dropRepeats())
-                              .filter(diff => diff !== 0)
-                              .compose(throttle(cooldown * 1000))
-                      )
-                      .flatten()
-                : xs.never<number>()
+        .map(cooldown =>
+            state$
+                .compose(
+                    dropRepeats((prev, curr) => prev.country === curr.country)
+                )
+                .mapTo(
+                    state$
+                        .filter(state => state.active && state.allies)
+                        .map(state => state.units?.allies)
+                        .compose(pairwise)
+                        .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
+                        .compose(dropRepeats())
+                        .filter(diff => diff !== 0)
+                        .compose(throttle(cooldown * 1000))
+                )
+                .flatten()
         )
         .flatten()
         .compose(sampleCombine(state$))
@@ -100,27 +91,25 @@ export const Troops: Component<Sources, Sinks> = sources => {
             })
         );
 
-    const axisCreate$ = props$
+    const axisCreate$ = state$
+        .map(({ cooldown }) => cooldown)
         .compose(dropRepeats())
-        .map(({ active, axis, cooldown }) =>
-            active && axis
-                ? state$
-                      .compose(
-                          dropRepeats(
-                              (prev, curr) => prev.country === curr.country
-                          )
-                      )
-                      .mapTo(
-                          state$
-                              .map(state => state.units?.axis)
-                              .compose(pairwise)
-                              .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
-                              .compose(dropRepeats())
-                              .filter(diff => diff !== 0)
-                              .compose(throttle(cooldown * 1000))
-                      )
-                      .flatten()
-                : xs.never<number>()
+        .map(cooldown =>
+            state$
+                .compose(
+                    dropRepeats((prev, curr) => prev.country === curr.country)
+                )
+                .mapTo(
+                    state$
+                        .filter(state => state.active && state.axis)
+                        .map(state => state.units?.axis)
+                        .compose(pairwise)
+                        .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
+                        .compose(dropRepeats())
+                        .filter(diff => diff !== 0)
+                        .compose(throttle(cooldown * 1000))
+                )
+                .flatten()
         )
         .flatten()
         .compose(sampleCombine(state$))
@@ -134,7 +123,7 @@ export const Troops: Component<Sources, Sinks> = sources => {
         );
 
     return {
-        state: xs.merge(initReducer$, responseReducer$),
+        state: xs.merge(responseReducer$),
         notifications: xs.merge(alliesCreate$, axisCreate$),
     };
 };

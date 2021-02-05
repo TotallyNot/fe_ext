@@ -5,7 +5,7 @@ import { Reducer, StateSource } from "@cycle/state";
 import produce from "immer";
 
 import { Component, isSuccess } from "common/types";
-import { OptReducer, InitReducer } from "common/state";
+import { OptReducer } from "common/state";
 
 import { APISource } from "../drivers/apiDriver";
 import {
@@ -16,18 +16,16 @@ import {
 } from "../drivers/notificationDriver";
 
 export interface State {
+    active: boolean;
     shown: boolean;
     dismissed: boolean;
-}
 
-interface Props {
-    active: boolean;
+    timestamp?: number;
 }
 
 interface Sources {
     state: StateSource<State>;
     api: APISource;
-    props: Stream<Props>;
     notifications: NotificationSource;
 }
 
@@ -39,7 +37,6 @@ interface Sinks {
 export const War: Component<Sources, Sinks> = ({
     state,
     api,
-    props,
     notifications,
 }) => {
     const response$ = api
@@ -47,15 +44,14 @@ export const War: Component<Sources, Sinks> = ({
         .filter(isSuccess)
         .map(({ data }) => data);
 
-    const create$ = xs
-        .combine(response$, props, state.stream)
-        .map(([data, props, state]) =>
-            props.active && !state.dismissed && !state.shown
+    const create$ = state.stream
+        .map(state =>
+            state.active && !state.dismissed && !state.shown && state.timestamp
                 ? xs
                       .of(undefined)
                       .compose(
                           delay(
-                              Math.max(0, data.timers.war * 1000 - Date.now())
+                              Math.max(0, state.timestamp * 1000 - Date.now())
                           )
                       )
                 : xs.empty<undefined>()
@@ -73,6 +69,14 @@ export const War: Component<Sources, Sinks> = ({
     const clear$ = response$
         .filter(data => data.timers.war * 1000 > Date.now())
         .mapTo(clear("war"));
+
+    const responseReducer$ = response$.map(data =>
+        OptReducer((state: State) =>
+            produce(state, draft => {
+                draft.timestamp = data.timers.war;
+            })
+        )
+    );
 
     const notificationReducer$ = notifications.select("war").map(event =>
         OptReducer((prev: State) =>
@@ -92,12 +96,8 @@ export const War: Component<Sources, Sinks> = ({
         )
     );
 
-    const initReducer$ = xs.of(
-        InitReducer<State>({ shown: false, dismissed: false })
-    );
-
     return {
         notifications: xs.merge(create$, clear$),
-        state: xs.merge(initReducer$, notificationReducer$),
+        state: xs.merge(responseReducer$, notificationReducer$),
     };
 };

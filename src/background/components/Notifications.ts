@@ -28,17 +28,6 @@ import { State as TroopsState, Troops } from "./Troops";
 export interface NotificationsState {
     settings: {
         refreshPeriod: number;
-
-        war: boolean;
-        statistics: boolean;
-        events: boolean;
-        mail: boolean;
-        troops: {
-            active: boolean;
-            cooldown: number;
-            axis: boolean;
-            allies: boolean;
-        };
     };
 
     requests: {
@@ -52,11 +41,11 @@ export interface NotificationsState {
         };
     };
 
-    events?: EventState;
-    statistic?: StatisticState;
-    mail?: MailState;
-    war?: WarState;
-    troops?: TroopsState;
+    events: EventState;
+    statistic: StatisticState;
+    mail: MailState;
+    war: WarState;
+    troops: TroopsState;
 }
 
 type State = ChildState<"notifications">;
@@ -139,17 +128,32 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         InitReducer<State>({
             settings: {
                 refreshPeriod: 30,
-
-                war: true,
-                statistics: true,
-                events: true,
-                mail: true,
-                troops: {
-                    active: true,
-                    axis: true,
-                    allies: true,
-                    cooldown: 60,
-                },
+            },
+            events: {
+                active: true,
+                shown: false,
+                dismissed: false,
+            },
+            mail: {
+                active: true,
+                shown: false,
+                dismissed: false,
+            },
+            war: {
+                active: true,
+                shown: false,
+                dismissed: false,
+            },
+            statistic: {
+                active: true,
+                shown: false,
+                dismissed: false,
+            },
+            troops: {
+                active: true,
+                axis: true,
+                allies: true,
+                cooldown: 60,
             },
             requests: {},
         })
@@ -199,42 +203,15 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const eventSources = {
-        ...sources,
-        props: state$.map(state => ({ active: state.settings.events })),
-    };
+    const eventSinks = isolate(Event, { state: "events" })(sources);
 
-    const eventSinks = isolate(Event, { state: "events" })(eventSources);
+    const mailSinks = isolate(Mail, { state: "mail" })(sources);
 
-    const mailSources = {
-        ...sources,
-        props: state$.map(state => ({ active: state.settings.mail })),
-    };
+    const statisticSinks = isolate(Statistic, { state: "statistic" })(sources);
 
-    const mailSinks = isolate(Mail, { state: "mail" })(mailSources);
+    const warSinks = isolate(War, { state: "war" })(sources);
 
-    const statisticSources = {
-        ...sources,
-        props: state$.map(state => ({ active: state.settings.statistics })),
-    };
-
-    const statisticSinks = isolate(Statistic, { state: "statistic" })(
-        statisticSources
-    );
-
-    const warSources = {
-        ...sources,
-        props: state$.map(state => ({ active: state.settings.war })),
-    };
-
-    const warSinks = isolate(War, { state: "war" })(warSources);
-
-    const troopsSources = {
-        ...sources,
-        props: state$.map(state => state.settings.troops),
-    };
-
-    const troopsSinks = isolate(Troops, { state: "troops" })(troopsSources);
+    const troopsSinks = isolate(Troops, { state: "troops" })(sources);
 
     const ownSinks = {
         api: xs.merge(notificationRequest$, countryRequest$),
