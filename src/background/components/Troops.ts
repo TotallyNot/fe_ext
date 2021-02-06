@@ -8,7 +8,7 @@ import { Reducer, StateSource } from "@cycle/state";
 import produce from "immer";
 
 import { Component, isSuccess } from "common/types";
-import { OptReducer, InitReducer } from "common/state";
+import { OptReducer } from "common/state";
 
 import { APISource } from "../drivers/apiDriver";
 import {
@@ -65,20 +65,17 @@ export const Troops: Component<Sources, Sinks> = sources => {
         .compose(dropRepeats())
         .map(cooldown =>
             state$
-                .compose(
-                    dropRepeats((prev, curr) => prev.country === curr.country)
+                .filter(state => state.active && state.allies)
+                .compose(pairwise)
+                .filter(
+                    ([prev, curr]) =>
+                        prev.country !== undefined &&
+                        prev.units !== undefined &&
+                        prev.country === curr.country
                 )
-                .mapTo(
-                    state$
-                        .filter(state => state.active && state.allies)
-                        .map(state => state.units?.allies)
-                        .compose(pairwise)
-                        .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
-                        .compose(dropRepeats())
-                        .filter(diff => diff !== 0)
-                        .compose(throttle(cooldown * 1000))
-                )
-                .flatten()
+                .map(([prev, curr]) => curr.units!.allies - prev.units!.allies)
+                .filter(diff => diff !== 0)
+                .compose(throttle(cooldown * 1000))
         )
         .flatten()
         .compose(sampleCombine(state$))
@@ -96,20 +93,17 @@ export const Troops: Component<Sources, Sinks> = sources => {
         .compose(dropRepeats())
         .map(cooldown =>
             state$
-                .compose(
-                    dropRepeats((prev, curr) => prev.country === curr.country)
+                .filter(state => state.active && state.allies)
+                .compose(pairwise)
+                .filter(
+                    ([prev, curr]) =>
+                        prev?.country !== undefined &&
+                        prev.units !== undefined &&
+                        prev.country === curr.country
                 )
-                .mapTo(
-                    state$
-                        .filter(state => state.active && state.axis)
-                        .map(state => state.units?.axis)
-                        .compose(pairwise)
-                        .map(([prev, curr]) => (curr ?? 0) - (prev ?? 0))
-                        .compose(dropRepeats())
-                        .filter(diff => diff !== 0)
-                        .compose(throttle(cooldown * 1000))
-                )
-                .flatten()
+                .map(([prev, curr]) => curr.units!.axis - prev.units!.axis)
+                .filter(diff => diff !== 0)
+                .compose(throttle(cooldown * 1000))
         )
         .flatten()
         .compose(sampleCombine(state$))
