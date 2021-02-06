@@ -1,5 +1,4 @@
 import { Stream, default as xs } from "xstream";
-import sampleCombine from "xstream/extra/sampleCombine";
 
 import { Reducer } from "@cycle/state";
 

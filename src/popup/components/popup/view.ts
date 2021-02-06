@@ -1,13 +1,22 @@
-import xs from "xstream";
-
-import { div, p } from "@cycle/dom";
+import { div, p, a } from "@cycle/dom";
 import { StateSource } from "@cycle/state";
+
+import { browser } from "webextension-polyfill-ts";
 
 import { State } from "./model";
 
 export const view = (model: StateSource<State>) =>
     model.stream.map(state =>
         div([
+            a(
+                {
+                    props: {
+                        href: browser.extension.getURL("settings.html"),
+                        target: "_blank",
+                    },
+                },
+                "settings"
+            ),
             div([
                 state.timers.war && p(`war: ${state.timers.war}`),
                 state.timers.statistics &&

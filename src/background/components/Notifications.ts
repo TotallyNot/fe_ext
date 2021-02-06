@@ -9,11 +9,12 @@ import { mergeSinks } from "cyclejs-utils";
 import produce from "immer";
 
 import { NotificationInfo } from "common/models/runtime/notificationInfo";
+import { NotificationSettings } from "common/models/runtime/notificationSettings";
 import { Component, isSome } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
 import { APISource, APIRequest } from "../drivers/apiDriver";
-import { RuntimeMessage } from "../drivers/runtimeDriver";
+import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 import {
     NotificationSource,
     NotificationActions,
@@ -55,6 +56,7 @@ type State = ChildState<"notifications">;
 interface Sources {
     state: StateSource<State | undefined>;
     api: APISource;
+    runtime: RuntimeSource;
     notifications: NotificationSource;
 }
 
@@ -89,6 +91,11 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const notificationState$ = state$
         .map(({ requests }) => requests.notifications)
         .compose(dropRepeats((prev, next) => prev?.status === next?.status));
+
+    const notificationSettings$ = sources.runtime.select(
+        "NotificationSettings",
+        NotificationSettings
+    );
 
     const notificationRequest$ = xs
         .combine(refreshPeriod$, notificationState$, apiKey$)
@@ -206,6 +213,20 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
+    const settingsReducer$ = notificationSettings$.map(settings =>
+        OptReducer((state: State) =>
+            produce(state, draft => {
+                draft.events.active = settings.events;
+                draft.mail.active = settings.mail;
+                draft.war.active = settings.war;
+                draft.troops.active = settings.troops.active;
+                draft.troops.allies = settings.troops.allies;
+                draft.troops.axis = settings.troops.axis;
+                draft.troops.cooldown = settings.troops.cooldown;
+            })
+        )
+    );
+
     const eventSinks = isolate(Event, { state: "events" })(sources);
 
     const mailSinks = isolate(Mail, { state: "mail" })(sources);
@@ -242,8 +263,25 @@ export const Notifications: Component<Sources, Sinks> = sources => {
             }
         })
         .filter(isSome)
-        .map(info => ({ kind: "NotificationInfo", data: info }))
-        .debug();
+        .map(info => ({ kind: "NotificationInfo", data: info }));
+
+    const settings$ = state$
+        .map(
+            (state): NotificationSettings => ({
+                refreshPeriod: state.settings.refreshPeriod,
+                events: state.events.active,
+                mail: state.mail.active,
+                statistic: state.statistic.active,
+                war: state.war.active,
+                troops: {
+                    active: state.troops.active,
+                    allies: state.troops.allies,
+                    axis: state.troops.axis,
+                    cooldown: state.troops.cooldown,
+                },
+            })
+        )
+        .map(settings => ({ kind: "NotificationSettings", data: settings }));
 
     const ownSinks = {
         api: xs.merge(notificationRequest$, countryRequest$),
@@ -252,9 +290,10 @@ export const Notifications: Component<Sources, Sinks> = sources => {
             notificationReducer$,
             countryReducer$,
             sentNotificationReducer$,
-            sentCountryReducer$
+            sentCountryReducer$,
+            settingsReducer$
         ),
-        runtime: notificationInfo$,
+        runtime: xs.merge(notificationInfo$, settings$),
     };
 
     return mergeSinks([
