@@ -22,10 +22,10 @@ export const view = (model: StateSource<State>) =>
                 state.timers.statistics &&
                     p(`training: ${state.timers.statistics}`),
             ]),
-            p(`${state.notificationInfo.country}:`),
-            p(
-                `allies: ${state.notificationInfo.units.allies} axis: ${state.notificationInfo.units.axis}`
-            ),
+            p([
+                `${state.notificationInfo.country}: `,
+                `allies: ${state.notificationInfo.units.allies} axis: ${state.notificationInfo.units.axis}`,
+            ]),
             p(
                 `events: ${state.notificationInfo.events} mail: ${state.notificationInfo.mail}`
             ),
