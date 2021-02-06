@@ -20,7 +20,11 @@ export const view = (model: StateSource<State>) =>
             div([
                 state.timers.war && p(`war: ${state.timers.war}`),
                 state.timers.statistics &&
-                    p(`training: ${state.timers.statistics}`),
+                    p([
+                        `training: ${state.timers.statistics}`,
+                        "   ",
+                        `${state.notificationInfo.queue.current}/${state.notificationInfo.queue.size}`,
+                    ]),
             ]),
             p([
                 `${state.notificationInfo.country}: `,

@@ -20,9 +20,12 @@ export interface State {
     shown: boolean;
     dismissed: boolean;
 
-    lastTrained?: number;
-    timestamp?: number;
-    queued?: number;
+    api?: {
+        lastTrained: number;
+        timestamp: number;
+        queued: number;
+        queueSize: number;
+    };
 }
 
 interface Sources {
@@ -56,19 +59,21 @@ export const Statistic: Component<Sources, Sinks> = ({
 
     const create$ = state.stream
         .map(state =>
-            state.queued === 0 &&
-            state.timestamp &&
+            state.api?.timestamp === 0 &&
             state.active &&
             !state.dismissed &&
             !state.shown
                 ? xs
-                      .of(state.lastTrained)
+                      .of(state.api.lastTrained)
                       .compose(
                           delay(
-                              Math.max(0, state.timestamp * 1000 - Date.now())
+                              Math.max(
+                                  0,
+                                  state.api.timestamp * 1000 - Date.now()
+                              )
                           )
                       )
-                : xs.empty<number | undefined>()
+                : xs.empty<number>()
         )
         .flatten()
         .map(lastTrained =>
@@ -85,9 +90,9 @@ export const Statistic: Component<Sources, Sinks> = ({
     const clear$ = state.stream
         .filter(
             state =>
-                (state.queued !== undefined && state.queued > 0) ||
-                (state.timestamp !== undefined &&
-                    state.timestamp * 1000 > Date.now())
+                state.api !== undefined &&
+                (state.api.queued > 0 ||
+                    state.api.timestamp * 1000 > Date.now())
         )
         .mapTo(clear("statistic"));
 
@@ -113,9 +118,12 @@ export const Statistic: Component<Sources, Sinks> = ({
     const responseReducer$ = response$.map(data =>
         OptReducer((state: State) =>
             produce(state, draft => {
-                draft.lastTrained = data.training.currentlyTraining;
-                draft.timestamp = data.timers.statistics;
-                draft.queued = data.training.queued.length;
+                draft.api = {
+                    lastTrained: data.training.currentlyTraining,
+                    timestamp: data.timers.statistics,
+                    queued: data.training.queued.length,
+                    queueSize: data.training.queueSize,
+                };
             })
         )
     );

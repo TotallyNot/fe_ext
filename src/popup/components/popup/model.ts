@@ -46,12 +46,19 @@ export const model = ({ notificationInfo$ }: Inputs): Sinks => {
                     draft.timers.war = formatDiff(
                         Math.max(state.notificationInfo.timers.war - now, 0)
                     );
-                    draft.timers.statistics = formatDiff(
-                        Math.max(
-                            state.notificationInfo.timers.statistics - now,
-                            0
-                        )
-                    );
+                    if (
+                        state.notificationInfo.timers.statistics < now &&
+                        state.notificationInfo.queue.current !== 0
+                    ) {
+                        draft.timers.statistics = "N/A";
+                    } else {
+                        draft.timers.statistics = formatDiff(
+                            Math.max(
+                                state.notificationInfo.timers.statistics - now,
+                                0
+                            )
+                        );
+                    }
                 })
             )
         );

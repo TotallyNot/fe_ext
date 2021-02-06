@@ -8,6 +8,11 @@ export const NotificationInfo = Object({
         statistics: Number,
     }),
 
+    queue: Object({
+        current: Number,
+        size: Number,
+    }),
+
     units: Object({
         allies: Number,
         axis: Number,

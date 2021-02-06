@@ -240,7 +240,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const notificationInfo$ = state$
         .map((state): NotificationInfo | undefined => {
             if (
-                !state.statistic.timestamp ||
+                !state.statistic.api ||
                 !state.war.timestamp ||
                 !state.troops.country ||
                 !state.troops.units ||
@@ -253,7 +253,12 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                     country: state.troops.country,
                     timers: {
                         war: state.war.timestamp,
-                        statistics: state.statistic.timestamp,
+                        statistics: state.statistic.api.timestamp,
+                    },
+
+                    queue: {
+                        current: state.statistic.api.queued,
+                        size: state.statistic.api.queueSize,
                     },
 
                     units: state.troops.units,
