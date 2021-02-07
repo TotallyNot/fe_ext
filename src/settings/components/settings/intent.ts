@@ -15,9 +15,10 @@ export interface Sources {
 }
 
 export const intent = (sources: Sources) => {
-    const notificationSettings$ = sources.background
-        .select("NotificationSettings", NotificationSettings)
-        .debug();
+    const notificationSettings$ = sources.background.select(
+        "NotificationSettings",
+        NotificationSettings
+    );
 
     const event$ = sources.DOM.select("#events").events("change");
     const mail$ = sources.DOM.select("#mail").events("change");

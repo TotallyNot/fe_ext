@@ -7,6 +7,8 @@ import { setupPage, normalize } from "csstips";
 
 import { BackgroundDriver } from "common/drivers/backgroundDriver";
 
+import { background, text } from "./styles";
+
 import Root from "./components/Root";
 
 normalize();
@@ -15,6 +17,10 @@ cssRule("body", {
     width: 250,
     padding: 0,
     margin: 0,
+});
+cssRule("#popup", {
+    backgroundColor: background.toString(),
+    color: text.toString(),
 });
 
 run(Root, {

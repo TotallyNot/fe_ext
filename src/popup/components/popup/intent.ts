@@ -14,9 +14,10 @@ export interface Sources {
 }
 
 export const intent = (sources: Sources) => {
-    const notificationInfo$ = sources.background
-        .select("NotificationInfo", NotificationInfo)
-        .debug();
+    const notificationInfo$ = sources.background.select(
+        "NotificationInfo",
+        NotificationInfo
+    );
 
     return {
         notificationInfo$,
