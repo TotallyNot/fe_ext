@@ -59,7 +59,7 @@ export const Statistic: Component<Sources, Sinks> = ({
 
     const create$ = state.stream
         .map(state =>
-            state.api?.timestamp === 0 &&
+            state.api?.queued === 0 &&
             state.active &&
             !state.dismissed &&
             !state.shown
