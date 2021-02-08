@@ -93,7 +93,7 @@ export const Troops: Component<Sources, Sinks> = sources => {
         .compose(dropRepeats())
         .map(cooldown =>
             state$
-                .filter(state => state.active && state.allies)
+                .filter(state => state.active && state.axis)
                 .compose(pairwise)
                 .filter(
                     ([prev, curr]) =>

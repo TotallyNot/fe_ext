@@ -17,6 +17,8 @@ cssRule("body", {
     width: 250,
     padding: 0,
     margin: 0,
+    fontSize: 14,
+    fontFamily: "Helvetica, sans-serif",
 });
 cssRule("#popup", {
     backgroundColor: background.toString(),
