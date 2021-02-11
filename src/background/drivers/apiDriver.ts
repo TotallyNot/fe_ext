@@ -1,5 +1,15 @@
 import { Stream, default as xs } from "xstream";
-import { HTTPSource, makeHTTPDriver, RequestInput } from "@cycle/http";
+import { from, of, Observable } from "rxjs";
+import { fromFetch } from "rxjs/fetch";
+import {
+    mergeMap,
+    map,
+    filter,
+    catchError,
+    share,
+    pluck,
+} from "rxjs/operators";
+import { adapt } from "@cycle/run/lib/adapt";
 
 import { API, Payload, FEError } from "common/models";
 import { Result } from "common/types";
@@ -17,22 +27,56 @@ export type APIError = {
 
 export type APIResult<T extends keyof API> = Result<Payload<T>, APIError>;
 
-const toRequest = ({ selection, apiKey, id }: APIRequest): RequestInput => {
-    const category = id ? `${selection}-${id}` : selection;
+const toFetch = ({
+    selection,
+    apiKey,
+    id,
+}: APIRequest): Observable<Response> => {
     const idQuery = id ? `id=${id}` : "";
-    return {
-        url: `https://www.finalearth.com/api/${category}?key=${apiKey}${idQuery}`,
-        method: "GET",
-        category,
-    };
+    return fromFetch(
+        `https://www.finalearth.com/api/${selection}?key=${apiKey}${idQuery}`,
+        {
+            method: "GET",
+        }
+    );
 };
 
+const toCategory = (selection: string, id?: number) =>
+    id ? `${selection}-${id}` : selection;
+
 export class APISource {
-    http: HTTPSource;
+    response$: Observable<{ body: any; category: string }>;
 
     constructor(apiRequest$: Stream<APIRequest>) {
-        const request$ = apiRequest$.map(toRequest);
-        this.http = makeHTTPDriver()(request$);
+        this.response$ = from(
+            (apiRequest$ as unknown) as Observable<APIRequest>
+        ).pipe(
+            mergeMap(request =>
+                toFetch(request).pipe(
+                    mergeMap(response =>
+                        from(
+                            response.json().catch(() => ({
+                                error: true,
+                                reason: response.statusText,
+                                data: { code: response.status },
+                            }))
+                        )
+                    ),
+                    catchError(error =>
+                        of({
+                            error: true,
+                            reason: error.message,
+                            data: { code: -1 },
+                        })
+                    ),
+                    map(body => ({
+                        body,
+                        category: toCategory(request.selection, request.id),
+                    }))
+                )
+            ),
+            share()
+        );
     }
 
     response<K extends keyof API>(
@@ -42,57 +86,40 @@ export class APISource {
         const category = id ? `${selection}-${id}` : selection;
         const [error, payload] = API.fields[selection].alternatives;
 
-        return this.http
-            .select(category)
-            .map(response$ =>
-                response$
-                    .map(({ body }) => body)
-                    .replaceError(() =>
-                        xs.of({
-                            error: true,
-                            reason: false,
-                            data: { code: 500 },
-                        })
-                    )
-            )
-            .flatten()
-            .map(
-                (body): APIResult<K> => {
-                    if (error.test(body)) {
-                        return {
-                            type: "failure",
-                            data: { code: body.data.code },
-                        };
-                    } else if (payload.test(body)) {
-                        return { type: "success", data: body.data };
-                    } else {
-                        return {
-                            type: "failure",
-                            data: { code: 500, reason: "couldn't parse body" },
-                        };
-                    }
+        const result$ = this.response$.pipe(
+            filter(response => response.category === category),
+            map(({ body }) => {
+                if (error.test(body)) {
+                    return {
+                        type: "failure",
+                        data: { code: body.data.code, reason: body.reason },
+                    };
+                } else if (payload.test(body)) {
+                    return { type: "success", data: body.data };
+                } else {
+                    return {
+                        type: "failure",
+                        data: {
+                            code: -1,
+                            reason: "something went wrong!",
+                        },
+                    };
                 }
-            );
+            }),
+            share()
+        );
+
+        return adapt(xs.from((result$ as unknown) as Stream<APIResult<K>>));
     }
 
     errors(): Stream<FEError> {
-        return this.http
-            .select()
-            .map(response$ =>
-                response$
-                    .map(({ body }) => body)
-                    .replaceError(error =>
-                        xs.of({
-                            body: {
-                                error: true,
-                                reason: error.message ?? "unknown",
-                                data: { code: -1 },
-                            },
-                        })
-                    )
-            )
-            .flatten()
-            .filter(FEError.test);
+        const error$ = this.response$.pipe(
+            pluck("body"),
+            filter(FEError.test),
+            share()
+        );
+
+        return adapt(xs.from((error$ as unknown) as Stream<FEError>));
     }
 }
 
