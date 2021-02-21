@@ -17,7 +17,7 @@ export const outlineButton = style({
     borderStyle: "solid",
     textDecoration: "none",
     display: "inline-block",
-    padding: [1, 5, 3, 5],
+    padding: "2px 5px 3px 5px",
     $nest: {
         "&:hover": {
             borderColor: primary.lighten(0.1).toString(),
@@ -39,6 +39,10 @@ export const textField = style({
         "&:focus": {
             outline: "none",
             borderColor: primary.toString(),
+        },
+        "&:disabled": {
+            color: text.darken(0.4).toString(),
+            backgroundColor: background.darken(0.02).toString(),
         },
     },
 });

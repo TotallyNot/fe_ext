@@ -1,4 +1,5 @@
 import { Stream } from "xstream";
+import debounce from "xstream/extra/debounce";
 import { StateSource, Reducer, withState } from "@cycle/state";
 import { mergeSinks } from "cyclejs-utils";
 
@@ -60,7 +61,7 @@ const stateLens = <K extends keyof State>(key: K) => ({
 });
 
 const Root = (sources: Sources): Sinks => {
-    sources.state.stream.addListener({
+    sources.state.stream.compose(debounce(100)).addListener({
         next: next => console.log(next),
         error: error => console.log(error),
     });

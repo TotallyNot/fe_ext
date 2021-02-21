@@ -7,7 +7,7 @@ import { setupPage, normalize } from "csstips";
 
 import { BackgroundDriver } from "common/drivers/backgroundDriver";
 
-import { background, text } from "./styles";
+import { background, text } from "common/styles";
 
 import Root from "./components/Root";
 

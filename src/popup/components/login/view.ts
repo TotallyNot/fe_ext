@@ -4,7 +4,7 @@ import { StateSource } from "@cycle/state";
 import { style } from "typestyle";
 import { vertical, content } from "csstips";
 
-import { outlineButton, textField, error } from "../../styles";
+import { outlineButton, textField, error } from "common/styles";
 
 import { State } from "./model";
 

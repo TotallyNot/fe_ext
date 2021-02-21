@@ -7,12 +7,11 @@ export const NotificationSettings = Object({
     statistic: Boolean,
     mail: Boolean,
     war: Boolean,
-    troops: Object({
-        active: Boolean,
-        axis: Boolean,
-        allies: Boolean,
-        cooldown: Number,
-    }),
+    troops: Boolean,
+    troopsAxis: Boolean,
+    troopsAllies: Boolean,
+
+    troopsCooldown: Number,
 });
 
 export type NotificationSettings = Static<typeof NotificationSettings>;

@@ -1,4 +1,4 @@
-import { Stream, default as xs } from "xstream";
+import { Stream } from "xstream";
 import { from, of, Observable } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
@@ -11,6 +11,7 @@ import {
 } from "rxjs/operators";
 import { adapt } from "@cycle/run/lib/adapt";
 
+import { streamToObs, obsToStream } from "common/connect";
 import { API, Payload, FEError } from "common/models";
 import { Result } from "common/types";
 
@@ -48,9 +49,7 @@ export class APISource {
     response$: Observable<{ body: any; category: string }>;
 
     constructor(apiRequest$: Stream<APIRequest>) {
-        this.response$ = from(
-            (apiRequest$ as unknown) as Observable<APIRequest>
-        ).pipe(
+        this.response$ = streamToObs(apiRequest$).pipe(
             mergeMap(request =>
                 toFetch(request).pipe(
                     mergeMap(response =>
@@ -109,7 +108,7 @@ export class APISource {
             share()
         );
 
-        return adapt(xs.from((result$ as unknown) as Stream<APIResult<K>>));
+        return adapt(obsToStream(result$));
     }
 
     errors(): Stream<FEError> {
@@ -119,7 +118,7 @@ export class APISource {
             share()
         );
 
-        return adapt(xs.from((error$ as unknown) as Stream<FEError>));
+        return adapt(obsToStream(error$));
     }
 }
 

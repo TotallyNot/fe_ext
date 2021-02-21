@@ -48,9 +48,9 @@ export const Event: Component<Sources, Sinks> = ({
     const create$ = state.stream
         .filter(state => !state.shown && !state.dismissed && state.active)
         .map(({ unread }) => unread)
+        .compose(dropRepeats())
         .filter(isSome)
         .filter(unread => unread !== 0)
-        .compose(dropRepeats())
         .map(unread =>
             create("event", {
                 title: `You have ${unread} unread event${

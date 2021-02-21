@@ -8,7 +8,7 @@ import { State } from "./model";
 import { classes, style } from "typestyle";
 import { flex, vertical, content, horizontal } from "csstips";
 
-import { primary, allies, axis, outlineButton } from "../../styles";
+import { primary, allies, axis, outlineButton } from "common/styles";
 
 const container = style(vertical, {
     padding: 5,

@@ -219,10 +219,10 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                 draft.events.active = settings.events;
                 draft.mail.active = settings.mail;
                 draft.war.active = settings.war;
-                draft.troops.active = settings.troops.active;
-                draft.troops.allies = settings.troops.allies;
-                draft.troops.axis = settings.troops.axis;
-                draft.troops.cooldown = settings.troops.cooldown;
+                draft.troops.active = settings.troops;
+                draft.troops.allies = settings.troopsAllies;
+                draft.troops.axis = settings.troopsAxis;
+                draft.troops.cooldown = settings.troopsCooldown;
             })
         )
     );
@@ -278,12 +278,10 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                 mail: state.mail.active,
                 statistic: state.statistic.active,
                 war: state.war.active,
-                troops: {
-                    active: state.troops.active,
-                    allies: state.troops.allies,
-                    axis: state.troops.axis,
-                    cooldown: state.troops.cooldown,
-                },
+                troops: state.troops.active,
+                troopsAllies: state.troops.allies,
+                troopsAxis: state.troops.axis,
+                troopsCooldown: state.troops.cooldown,
             })
         )
         .map(settings => ({ kind: "NotificationSettings", data: settings }));
