@@ -7,7 +7,7 @@ import produce from "immer";
 import { Component, isSuccess } from "common/types";
 import { OptReducer } from "common/state";
 
-import { APISource } from "../drivers/apiDriver";
+import { APISource } from "common/drivers/apiDriver";
 import {
     NotificationSource,
     NotificationActions,

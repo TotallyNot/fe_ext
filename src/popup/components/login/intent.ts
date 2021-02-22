@@ -1,33 +1,23 @@
 import { MainDOMSource } from "@cycle/dom";
 import { StateSource } from "@cycle/state";
-import { HistoryInput } from "@cycle/history";
 
-import pluck from "common/xs/pluck";
-import { State } from "./model";
-
-import { APIKeyResponse } from "common/models/runtime";
 import { BackgroundSource } from "common/drivers/backgroundDriver";
+import { DBSource } from "common/drivers/dbDriver";
+import { APISource } from "common/drivers/apiDriver";
+
+import { isSuccess, isFailure } from "common/types";
+
+import { State } from "./model";
 
 export interface Sources {
     DOM: MainDOMSource;
     background: BackgroundSource;
     state: StateSource<State>;
+    DB: DBSource;
+    api: APISource;
 }
 
 export const intent = (sources: Sources) => {
-    const response$ = sources.background.select(
-        "apiKeyResponse",
-        APIKeyResponse
-    );
-
-    const error$ = response$
-        .filter(({ error }) => error)
-        .compose(pluck("reason"));
-
-    const loggedIn$ = response$
-        .filter(({ loggedIn }) => loggedIn)
-        .mapTo("/popup" as HistoryInput);
-
     const login$ = sources.DOM.select("form")
         .events("submit")
         .map(event => {
@@ -35,10 +25,15 @@ export const intent = (sources: Sources) => {
             return (event.target as any).elements.key.value as string;
         });
 
+    const response$ = sources.api.response("user");
+
+    const success$ = response$.filter(isSuccess).map(({ data }) => data);
+    const failure$ = response$.filter(isFailure).map(({ data }) => data.reason);
+
     return {
         login$,
-        error$,
-        loggedIn$,
+        success$,
+        failure$,
     };
 };
 

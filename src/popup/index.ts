@@ -6,6 +6,8 @@ import { cssRule } from "typestyle";
 import { setupPage, normalize } from "csstips";
 
 import { BackgroundDriver } from "common/drivers/backgroundDriver";
+import { makeDBDriver } from "common/drivers/dbDriver";
+import { APIDriver } from "common/drivers/apiDriver";
 
 import { background, text } from "common/styles";
 
@@ -28,5 +30,7 @@ cssRule("#popup", {
 run(Root, {
     DOM: makeDOMDriver("#popup"),
     background: BackgroundDriver(),
+    DB: makeDBDriver(),
     history: makeServerHistoryDriver(),
+    api: APIDriver(),
 });

@@ -1,64 +1,39 @@
-import { Stream } from "xstream";
+import { Stream, default as xs } from "xstream";
 import debounce from "xstream/extra/debounce";
 import { StateSource, Reducer, withState } from "@cycle/state";
 import { mergeSinks } from "cyclejs-utils";
 
 import isolate from "@cycle/isolate";
 
-import { APISource, APIRequest } from "../drivers/apiDriver";
+import { APISource, APIRequest } from "common/drivers/apiDriver";
 import {
     NotificationSource,
     NotificationActions,
 } from "../drivers/notificationDriver";
 import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
+import { DBSource, DBAction } from "common/drivers/dbDriver";
 
-import { APIKey, APIKeyState } from "./APIKey";
-import { Notifications, NotificationsState } from "./Notifications";
+import { Notifications, State as NotificationState } from "./Notifications";
 
 export interface State {
-    apiKey?: APIKeyState;
-    notifications?: NotificationsState;
+    notification?: NotificationState;
 }
 
-export type ChildState<K extends keyof State> = {
-    global?: Omit<State, K>;
-} & State[K];
-
 export interface Sources {
-    state: StateSource<State>;
-    api: APISource;
-    notifications: NotificationSource;
     runtime: RuntimeSource;
+    state: StateSource<State>;
+    notifications: NotificationSource;
+    DB: DBSource;
+    api: APISource;
 }
 
 export interface Sinks {
     state: Stream<Reducer<unknown>>;
     api: Stream<APIRequest>;
     notifications: Stream<NotificationActions>;
+    DB: Stream<DBAction>;
     runtime: Stream<RuntimeMessage>;
 }
-
-const stateLens = <K extends keyof State>(key: K) => ({
-    get: (state?: State): ChildState<K> | undefined => {
-        if (state?.[key]) {
-            const { [key]: own, ...global } = state;
-            return { global, ...own };
-        } else {
-            return undefined;
-        }
-    },
-    set: (state?: State, childState?: ChildState<K>): State | undefined => {
-        if (childState) {
-            const { global: _, ...own } = childState;
-            return {
-                ...state,
-                [key]: own,
-            };
-        } else {
-            return state;
-        }
-    },
-});
 
 const Root = (sources: Sources): Sinks => {
     sources.state.stream.compose(debounce(100)).addListener({
@@ -66,15 +41,13 @@ const Root = (sources: Sources): Sinks => {
         error: error => console.log(error),
     });
 
-    const apiKeySinks = isolate(APIKey, { state: stateLens("apiKey") })(
-        sources
-    );
-
     const notificationsSinks = isolate(Notifications, {
-        state: stateLens("notifications"),
+        state: "notification",
     })(sources);
 
-    return mergeSinks([apiKeySinks, notificationsSinks]);
+    const ownSinks = { DB: xs.empty<DBAction>() };
+
+    return mergeSinks([notificationsSinks, ownSinks]);
 };
 
 export default withState(Root);

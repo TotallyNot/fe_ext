@@ -26,9 +26,6 @@ const config: Configuration = {
             common: join(__dirname, "src/common"),
         },
     },
-    node: {
-        fs: "empty",
-    },
 };
 
 export default config;

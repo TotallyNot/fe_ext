@@ -16,11 +16,11 @@ export interface RouteDefinitions<So, Si> {
 
 export const resolveImplementation = <So extends {}, Si extends {}>(
     routes: RouteDefinitions<So, Si>
-) => (route: string): RouteResolution<So, Si> => {
-    const {
-        value: { getComponent },
-    } = switchPath(route, routes);
-    return {
-        getComponent,
-    };
+) => (route: string): RouteResolution<So, Si> | undefined => {
+    const { value } = switchPath(route, routes);
+    return value !== null
+        ? {
+              getComponent: value.getComponent,
+          }
+        : undefined;
 };

@@ -16,14 +16,16 @@ export interface Sinks {
     state: Stream<Reducer<any>>;
 }
 
-export const model = ({ login$, error$ }: Inputs): Sinks => {
+export const model = ({ login$, failure$ }: Inputs): Sinks => {
     const defaultReducer$ = xs.of(
         InitReducer<State>({ waiting: false, error: false })
     );
+
     const waitReducer$ = login$.mapTo(
         OptReducer<State>(state => ({ ...state, waiting: true }))
     );
-    const errorReducer$ = error$.map(reason =>
+
+    const errorReducer$ = failure$.map(reason =>
         OptReducer<State>(_ => ({
             waiting: false,
             error: true,

@@ -1,6 +1,17 @@
 import { Stream, default as xs } from "xstream";
-import delay from "xstream/extra/delay";
-import dropRepeats from "xstream/extra/dropRepeats";
+
+import { timer, EMPTY, combineLatest, merge } from "rxjs";
+import {
+    switchMap,
+    map,
+    mapTo,
+    filter,
+    pluck,
+    tap,
+    shareReplay,
+    distinctUntilChanged,
+} from "rxjs/operators";
+
 import isolate from "@cycle/isolate";
 import { Reducer, StateSource } from "@cycle/state";
 
@@ -8,19 +19,20 @@ import { mergeSinks } from "cyclejs-utils";
 
 import produce from "immer";
 
+import { obsToStream, streamToObs } from "common/connect";
+
 import { NotificationInfo } from "common/models/runtime/notificationInfo";
 import { NotificationSettings } from "common/models/runtime/notificationSettings";
 import { Component, isSome } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
-import { APISource, APIRequest } from "../drivers/apiDriver";
+import { APISource, APIRequest } from "common/drivers/apiDriver";
+import { DBSource } from "common/drivers/dbDriver";
 import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 import {
     NotificationSource,
     NotificationActions,
 } from "../drivers/notificationDriver";
-
-import { ChildState } from "./Root";
 
 import { State as EventState, Event } from "./Event";
 import { State as MailState, Mail } from "./Mail";
@@ -28,7 +40,7 @@ import { State as StatisticState, Statistic } from "./Statistic";
 import { State as WarState, War } from "./War";
 import { State as TroopsState, Troops } from "./Troops";
 
-export interface NotificationsState {
+export interface State {
     settings: {
         refreshPeriod: number;
     };
@@ -51,13 +63,12 @@ export interface NotificationsState {
     troops: TroopsState;
 }
 
-type State = ChildState<"notifications">;
-
 interface Sources {
     state: StateSource<State | undefined>;
     api: APISource;
     runtime: RuntimeSource;
     notifications: NotificationSource;
+    DB: DBSource;
 }
 
 interface Sinks {
@@ -71,68 +82,87 @@ function delayTime(period: number, timestamp?: number): number {
     if (!timestamp) {
         return 0;
     } else {
-        return 1000 * period + timestamp - Date.now();
+        return Math.max(0, 1000 * period + timestamp - Date.now());
     }
 }
 
 export const Notifications: Component<Sources, Sinks> = sources => {
-    const state$ = sources.state.stream.filter(isSome);
+    const state$ = streamToObs(sources.state.stream).pipe(
+        filter(isSome),
+        shareReplay(1)
+    );
 
-    const refreshPeriod$ = state$
-        .map(({ settings }) => settings.refreshPeriod)
-        .compose(dropRepeats());
+    const refreshPeriod$ = state$.pipe(
+        pluck("settings", "refreshPeriod"),
+        distinctUntilChanged()
+    );
 
-    const apiKey$ = state$
-        .map(({ global }) => global?.apiKey)
-        .filter(isSome)
-        .map(({ confirmed, key }) => (confirmed ? key : undefined))
-        .compose(dropRepeats());
+    const apiKey$ = sources.DB.db$.pipe(
+        switchMap(
+            db =>
+                db.player.findOne({
+                    selector: {
+                        user: {
+                            $exists: true,
+                        },
+                    },
+                }).$
+        ),
+        map(player => player?.user?.apiKey),
+        distinctUntilChanged(),
+        shareReplay(1)
+    );
 
-    const notificationState$ = state$
-        .map(({ requests }) => requests.notifications)
-        .compose(dropRepeats((prev, next) => prev?.status === next?.status));
+    const notificationTimestamp$ = state$.pipe(
+        pluck("requests", "notifications"),
+        map(state => state?.timestamp)
+    );
+
+    const countryTimestamp$ = state$.pipe(
+        pluck("requests", "country"),
+        map(state => state?.timestamp)
+    );
 
     const notificationSettings$ = sources.runtime.select(
         "NotificationSettings",
         NotificationSettings
     );
 
-    const notificationRequest$ = xs
-        .combine(refreshPeriod$, notificationState$, apiKey$)
-        .filter(([_, request]) => request?.status !== "sent")
-        .map(([period, request, apiKey]) => {
-            if (!apiKey) {
-                return xs.empty();
-            } else {
-                return xs
-                    .of<APIRequest>({
-                        selection: "notifications",
-                        apiKey,
-                    })
-                    .compose(delay(delayTime(period, request?.timestamp)));
-            }
-        })
-        .flatten();
-    const countryState$ = state$
-        .map(({ requests }) => requests.country)
-        .compose(dropRepeats((prev, next) => prev?.status === next?.status));
+    const notificationRequest$ = combineLatest(
+        apiKey$,
+        refreshPeriod$,
+        notificationTimestamp$
+    ).pipe(
+        switchMap(([apiKey, period, timestamp]) =>
+            apiKey
+                ? timer(delayTime(period, timestamp)).pipe(
+                      mapTo<{}, APIRequest>({
+                          apiKey,
+                          selection: "notifications",
+                      })
+                  )
+                : EMPTY
+        ),
+        shareReplay(1)
+    );
 
-    const countryRequest$ = xs
-        .combine(refreshPeriod$, countryState$, apiKey$)
-        .filter(([_, request]) => request?.status !== "sent")
-        .map(([period, request, apiKey]) => {
-            if (!apiKey) {
-                return xs.empty();
-            } else {
-                return xs
-                    .of<APIRequest>({
-                        selection: "country",
-                        apiKey,
-                    })
-                    .compose(delay(delayTime(period, request?.timestamp)));
-            }
-        })
-        .flatten();
+    const countryRequest$ = combineLatest(
+        apiKey$,
+        refreshPeriod$,
+        countryTimestamp$
+    ).pipe(
+        switchMap(([apiKey, period, timestamp]) =>
+            apiKey
+                ? timer(delayTime(period, timestamp)).pipe(
+                      mapTo<{}, APIRequest>({
+                          apiKey,
+                          selection: "country",
+                      })
+                  )
+                : EMPTY
+        ),
+        shareReplay(1)
+    );
 
     const initialReducer$ = xs.of(
         InitReducer<State>({
@@ -191,7 +221,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const sentNotificationReducer$ = notificationRequest$.mapTo(
+    const sentNotificationReducer$ = obsToStream(notificationRequest$).mapTo(
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 draft.requests.notifications = {
@@ -202,7 +232,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const sentCountryReducer$ = countryRequest$.mapTo(
+    const sentCountryReducer$ = obsToStream(countryRequest$).mapTo(
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 draft.requests.country = {
@@ -237,8 +267,8 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const troopsSinks = isolate(Troops, { state: "troops" })(sources);
 
-    const notificationInfo$ = state$
-        .map((state): NotificationInfo | undefined => {
+    const notificationInfo$ = state$.pipe(
+        map((state): NotificationInfo | undefined => {
             if (
                 !state.statistic.api ||
                 !state.war.timestamp ||
@@ -266,12 +296,13 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                     mail: state.events.unread,
                 };
             }
-        })
-        .filter(isSome)
-        .map(info => ({ kind: "NotificationInfo", data: info }));
+        }),
+        filter(isSome),
+        map(info => ({ kind: "NotificationInfo", data: info }))
+    );
 
-    const settings$ = state$
-        .map(
+    const settings$ = state$.pipe(
+        map(
             (state): NotificationSettings => ({
                 refreshPeriod: state.settings.refreshPeriod,
                 events: state.events.active,
@@ -283,11 +314,15 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                 troopsAxis: state.troops.axis,
                 troopsCooldown: state.troops.cooldown,
             })
-        )
-        .map(settings => ({ kind: "NotificationSettings", data: settings }));
+        ),
+        map(settings => ({ kind: "NotificationSettings", data: settings }))
+    );
 
     const ownSinks = {
-        api: xs.merge(notificationRequest$, countryRequest$),
+        api: xs.merge(
+            obsToStream(notificationRequest$).debug(),
+            obsToStream(countryRequest$).debug()
+        ),
         state: xs.merge(
             initialReducer$,
             notificationReducer$,
@@ -296,7 +331,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
             sentCountryReducer$,
             settingsReducer$
         ),
-        runtime: xs.merge(notificationInfo$, settings$),
+        runtime: obsToStream(merge(notificationInfo$, settings$)),
     };
 
     return mergeSinks([
