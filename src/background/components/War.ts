@@ -1,4 +1,5 @@
 import { Stream, default as xs } from "xstream";
+import { switchMap, map } from "rxjs/operators";
 import delay from "xstream/extra/delay";
 import { Reducer, StateSource } from "@cycle/state";
 
@@ -8,6 +9,7 @@ import { Component, isSuccess } from "common/types";
 import { OptReducer } from "common/state";
 
 import { APISource } from "common/drivers/apiDriver";
+import { DBSource, DBAction } from "common/drivers/dbDriver";
 import {
     NotificationSource,
     NotificationActions,
@@ -27,6 +29,7 @@ interface Sources {
     state: StateSource<State>;
     api: APISource;
     notifications: NotificationSource;
+    DB: DBSource;
 }
 
 interface Sinks {

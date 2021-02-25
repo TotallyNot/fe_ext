@@ -23,11 +23,11 @@ import { obsToStream, streamToObs } from "common/connect";
 
 import { NotificationInfo } from "common/models/runtime/notificationInfo";
 import { NotificationSettings } from "common/models/runtime/notificationSettings";
-import { Component, isSome } from "common/types";
+import { Component, isSome, isSuccess } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
 import { APISource, APIRequest } from "common/drivers/apiDriver";
-import { DBSource } from "common/drivers/dbDriver";
+import { DBSource, DBAction } from "common/drivers/dbDriver";
 import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 import {
     NotificationSource,
@@ -47,11 +47,15 @@ export interface State {
 
     requests: {
         notifications?: {
-            status: "sent" | "received" | "error";
             timestamp: number;
         };
         country?: {
-            status: "sent" | "received" | "error";
+            timestamp: number;
+        };
+        world?: {
+            timestamp: number;
+        };
+        user?: {
             timestamp: number;
         };
     };
@@ -123,6 +127,16 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         map(state => state?.timestamp)
     );
 
+    const worldTimestamp$ = state$.pipe(
+        pluck("requests", "world"),
+        map(state => state?.timestamp)
+    );
+
+    const userTimestamp$ = state$.pipe(
+        pluck("requests", "user"),
+        map(state => state?.timestamp)
+    );
+
     const notificationSettings$ = sources.runtime.select(
         "NotificationSettings",
         NotificationSettings
@@ -164,6 +178,49 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         shareReplay(1)
     );
 
+    const worldRequest$ = combineLatest(
+        apiKey$,
+        refreshPeriod$,
+        worldTimestamp$
+    ).pipe(
+        switchMap(([apiKey, period, timestamp]) =>
+            apiKey
+                ? timer(delayTime(period, timestamp)).pipe(
+                      mapTo<{}, APIRequest>({
+                          apiKey,
+                          selection: "world",
+                      })
+                  )
+                : EMPTY
+        ),
+        shareReplay(1)
+    );
+
+    const userRequest$ = combineLatest(
+        apiKey$,
+        refreshPeriod$,
+        userTimestamp$
+    ).pipe(
+        switchMap(([apiKey, period, timestamp]) =>
+            apiKey
+                ? timer(delayTime(period, timestamp)).pipe(
+                      mapTo<{}, APIRequest>({
+                          apiKey,
+                          selection: "user",
+                      })
+                  )
+                : EMPTY
+        ),
+        shareReplay(1)
+    );
+
+    const request$ = merge(
+        notificationRequest$,
+        countryRequest$,
+        worldRequest$,
+        userRequest$
+    );
+
     const initialReducer$ = xs.of(
         InitReducer<State>({
             settings: {
@@ -199,33 +256,10 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         })
     );
 
-    const notificationReducer$ = sources.api.response("notifications").mapTo(
-        OptReducer((prevState: State) =>
-            produce(prevState, draft => {
-                const request = draft.requests.notifications;
-                if (request) {
-                    request.status = "received";
-                }
-            })
-        )
-    );
-
-    const countryReducer$ = sources.api.response("country").mapTo(
-        OptReducer((prevState: State) =>
-            produce(prevState, draft => {
-                const request = draft.requests.country;
-                if (request) {
-                    request.status = "received";
-                }
-            })
-        )
-    );
-
     const sentNotificationReducer$ = obsToStream(notificationRequest$).mapTo(
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 draft.requests.notifications = {
-                    status: "sent",
                     timestamp: Date.now(),
                 };
             })
@@ -236,7 +270,26 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         OptReducer((prevState: State) =>
             produce(prevState, draft => {
                 draft.requests.country = {
-                    status: "sent",
+                    timestamp: Date.now(),
+                };
+            })
+        )
+    );
+
+    const sentWorldReducer$ = obsToStream(worldRequest$).mapTo(
+        OptReducer((prevState: State) =>
+            produce(prevState, draft => {
+                draft.requests.world = {
+                    timestamp: Date.now(),
+                };
+            })
+        )
+    );
+
+    const sentUserReducer$ = obsToStream(userRequest$).mapTo(
+        OptReducer((prevState: State) =>
+            produce(prevState, draft => {
+                draft.requests.user = {
                     timestamp: Date.now(),
                 };
             })
@@ -318,20 +371,48 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         map(settings => ({ kind: "NotificationSettings", data: settings }))
     );
 
+    const update$ = sources.api
+        .response("notifications")
+        .filter(isSuccess)
+        .map(
+            ({ data }): DBAction => db =>
+                db.player
+                    .find({
+                        selector: {
+                            user: {
+                                $exists: true,
+                            },
+                        },
+                    })
+                    .update({
+                        $set: {
+                            "user.notification": {
+                                war: data.timers.war,
+                                events: data.unreadEvents,
+                                mail: data.unreadMails,
+                                reimburse: data.timers.reimbursement,
+                            },
+                            "user.training": {
+                                timer: data.timers.statistics,
+                                queue: data.training.queued.length,
+                                queueSize: data.training.queueSize,
+                            },
+                        },
+                    })
+        );
+
     const ownSinks = {
-        api: xs.merge(
-            obsToStream(notificationRequest$).debug(),
-            obsToStream(countryRequest$).debug()
-        ),
+        api: obsToStream(request$),
         state: xs.merge(
             initialReducer$,
-            notificationReducer$,
-            countryReducer$,
             sentNotificationReducer$,
             sentCountryReducer$,
+            sentWorldReducer$,
+            sentUserReducer$,
             settingsReducer$
         ),
         runtime: obsToStream(merge(notificationInfo$, settings$)),
+        DB: update$,
     };
 
     return mergeSinks([

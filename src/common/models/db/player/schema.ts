@@ -26,6 +26,44 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                 apiKey: {
                     type: "string",
                 },
+
+                notification: {
+                    type: "object",
+                    properties: {
+                        war: {
+                            type: "number",
+                        },
+                        events: {
+                            type: "number",
+                        },
+                        mail: {
+                            type: "number",
+                        },
+                        reimburse: {
+                            type: "number",
+                        },
+                    },
+                    required: ["war", "events", "mail"],
+                },
+
+                training: {
+                    type: "object",
+                    properties: {
+                        timer: {
+                            type: "number",
+                        },
+                        queue: {
+                            type: "number",
+                        },
+                        queueSize: {
+                            type: "number",
+                        },
+                        lastTrained: {
+                            type: "number",
+                        },
+                    },
+                    required: ["timer", "queue", "queueSize"],
+                },
             },
             required: ["apiKey"],
         },
@@ -36,6 +74,10 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                 notification: {
                     type: "object",
                     properties: {
+                        refreshRate: {
+                            type: "number",
+                        },
+
                         event: {
                             type: "boolean",
                         },
@@ -48,8 +90,45 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                         training: {
                             type: "boolean",
                         },
+                        reimburse: {
+                            type: "boolean",
+                        },
+
+                        userLocationActive: {
+                            type: "boolean",
+                        },
+                        userLocations: {
+                            type: "object",
+                            properties: {
+                                allies: {
+                                    type: "boolean",
+                                },
+                                axis: {
+                                    type: "boolean",
+                                },
+                                cooldown: {
+                                    type: "integer",
+                                },
+                                cooldownActive: {
+                                    type: "boolean",
+                                },
+                            },
+                            required: [
+                                "allies",
+                                "axis",
+                                "cooldown",
+                                "cooldowActive",
+                            ],
+                        },
                     },
-                    required: ["event", "mail", "war", "training"],
+                    required: [
+                        "event",
+                        "mail",
+                        "war",
+                        "training",
+                        "userLocationActive",
+                        "userLocation",
+                    ],
                 },
             },
             required: ["notification"],

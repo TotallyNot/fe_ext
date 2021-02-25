@@ -1,4 +1,4 @@
-import { Union, Object, Literal, Runtype, Static } from "funtypes";
+import { Union, Object, Array, Literal, Runtype, Static } from "funtypes";
 
 import { FEError } from "./error";
 export { FEError } from "./error";
@@ -19,6 +19,7 @@ export const API = Object({
     notifications: makeResponse(FENotifications),
     user: makeResponse(User),
     country: makeResponse(Country),
+    world: makeResponse(Array(Country)),
 });
 
 export type API = Static<typeof API>;

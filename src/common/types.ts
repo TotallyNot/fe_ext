@@ -19,6 +19,6 @@ export function isFailure<Success, Failure>(
     return result.type === "failure";
 }
 
-export function isSome<T>(value?: T): value is T {
-    return value !== undefined;
+export function isSome<T>(value: T | undefined | null): value is T {
+    return value !== undefined && value !== null;
 }

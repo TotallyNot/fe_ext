@@ -1,9 +1,27 @@
-import { Object, Number, String, Boolean, Static } from "funtypes";
+import {
+    Object,
+    Number,
+    String,
+    Boolean,
+    Literal,
+    Union,
+    Static,
+} from "funtypes";
 
 export const Country = Object({
     id: String,
     name: String,
-    region: String,
+    region: Union(
+        Literal("Africa"),
+        Literal("North America"),
+        Literal("Australasia"),
+        Literal("Europe"),
+        Literal("Asia"),
+        Literal("South America"),
+        Literal("Caribbean"),
+        Literal("Middle East"),
+        Literal("Antarctica")
+    ),
     control: Number,
     controlTeam: Number,
     initialControl: Number,

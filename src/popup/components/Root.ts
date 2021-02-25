@@ -1,5 +1,5 @@
 import { HistoryInput } from "@cycle/history";
-import { switchMap, map } from "rxjs/operators";
+import { switchMap, map, distinctUntilChanged } from "rxjs/operators";
 
 import xs from "xstream";
 import pluck from "common/xs/pluck";
@@ -33,7 +33,8 @@ const Root: Component<Sources, Sinks> = sources => {
                     },
                 }).$
         ),
-        map((result): HistoryInput => (result ? "/popup" : "/login"))
+        map((result): HistoryInput => (result ? "/popup" : "/login")),
+        distinctUntilChanged()
     );
 
     return {

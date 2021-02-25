@@ -6,6 +6,7 @@ export const FENotifications = Object({
         operations: Number,
         politics: Number,
         war: Number,
+        reimbursement: Number,
     }),
     training: Object({
         currentlyTraining: Number,

@@ -93,16 +93,19 @@ export class APISource {
                         type: "failure",
                         data: { code: body.data.code, reason: body.reason },
                     };
-                } else if (payload.test(body)) {
-                    return { type: "success", data: body.data };
                 } else {
-                    return {
-                        type: "failure",
-                        data: {
-                            code: -1,
-                            reason: "something went wrong!",
-                        },
-                    };
+                    const result = payload.safeParse(body);
+                    if (result.success) {
+                        return { type: "success", data: result.value.data };
+                    } else {
+                        return {
+                            type: "failure",
+                            data: {
+                                code: -1,
+                                reason: result.message,
+                            },
+                        };
+                    }
                 }
             }),
             share()

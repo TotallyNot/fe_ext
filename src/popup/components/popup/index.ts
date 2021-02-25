@@ -1,12 +1,14 @@
 import { withState } from "@cycle/state";
 
+import { obsToStream } from "common/connect";
+
 import { intent, Sources } from "./intent";
 import { model } from "./model";
 import { view } from "./view";
 
 const popup = (sources: Sources) => {
     const actions = intent(sources);
-    const reducers = model(actions);
+    const reducer$ = model(actions);
     const DOM = view(sources.state);
 
     // get state stream started :/
@@ -14,7 +16,7 @@ const popup = (sources: Sources) => {
 
     return {
         DOM,
-        state: reducers.state,
+        state: obsToStream(reducer$),
     };
 };
 
