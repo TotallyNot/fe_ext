@@ -1,6 +1,6 @@
-import { Stream, default as xs } from "xstream";
+import { Stream } from "xstream";
 
-import { merge, from, asapScheduler } from "rxjs";
+import { merge, from, asapScheduler, EMPTY } from "rxjs";
 import {
     filter,
     groupBy,
@@ -13,16 +13,12 @@ import {
     distinctUntilChanged,
     withLatestFrom,
     skip,
+    throttleTime,
     observeOn,
 } from "rxjs/operators";
 import { v4 } from "uuid";
 
-import { Reducer, StateSource } from "@cycle/state";
-
-import produce from "immer";
-
 import { Component, isSuccess, isSome } from "common/types";
-import { OptReducer } from "common/state";
 import { obsToStream, streamToObs } from "common/connect";
 
 import { APISource } from "common/drivers/apiDriver";
@@ -36,41 +32,29 @@ import {
 import { CountryEventDocType } from "common/models/db/countryEvent/types";
 import { CountryDocType } from "common/models/db/country/types";
 
-export interface State {
-    country?: string;
-
-    units?: {
-        axis: number;
-        allies: number;
-    };
-
-    active: boolean;
-    cooldown: number;
-
-    axis: boolean;
-    allies: boolean;
-}
+import { ChildProps } from "./Notifications";
 
 interface Sources {
-    state: StateSource<State>;
     api: APISource;
     notifications: NotificationSource;
     DB: DBSource;
+    props: ChildProps;
 }
 
 interface Sinks {
-    state: Stream<Reducer<State>>;
     notifications: Stream<NotificationActions>;
     DB: Stream<DBAction>;
 }
 
-export const Troops: Component<Sources, Sinks> = sources => {
+export const units: Component<Sources, Sinks> = sources => {
     const country$ = streamToObs(sources.api.response("world")).pipe(
         filter(isSuccess),
         observeOn(asapScheduler),
         mergeMap(({ data }) => from(data)),
         share()
     );
+
+    const settings$ = sources.props.settings$;
 
     const insertEvents$ = country$.pipe(
         groupBy(country => country.id),
@@ -223,57 +207,66 @@ export const Troops: Component<Sources, Sinks> = sources => {
         share()
     );
 
-    const response$ = sources.api
-        .response("country")
-        .filter(isSuccess)
-        .map(({ data }) => data);
-
-    const responseReducer$ = response$.map(data =>
-        OptReducer((state: State) =>
-            produce(state, draft => {
-                draft.units = data.units;
-                draft.country = data.name;
-            })
+    const alliesCreate$ = settings$.pipe(
+        switchMap(({ userLocation, userLocationActive }) =>
+            !userLocationActive || !userLocation.allies
+                ? EMPTY
+                : countryEvent$.pipe(
+                      filter(({ deltas }) => deltas.allies !== undefined),
+                      switchMap(event =>
+                          from(event.populate("countryID")).pipe(
+                              map((country: CountryDocType) =>
+                                  create("current_allies", {
+                                      title: `Allied units in ${country.name}`,
+                                      message: `Changed by ${event.deltas.allies}!`,
+                                      iconUrl: "placeholder.png",
+                                      type: "basic",
+                                  })
+                              )
+                          )
+                      ),
+                      throttleTime(
+                          userLocation.cooldownActive
+                              ? userLocation.cooldown * 1000
+                              : 0
+                      )
+                  )
         )
     );
 
-    const alliesCreate$ = countryEvent$.pipe(
-        filter(({ deltas }) => deltas.allies !== undefined),
-        switchMap(event =>
-            from(event.populate("countryID")).pipe(
-                map((country: CountryDocType) =>
-                    create("current_allies", {
-                        title: `Allied units in ${country.name}`,
-                        message: `Changed by ${event.deltas.allies}!`,
-                        iconUrl: "placeholder.png",
-                        type: "basic",
-                    })
-                )
-            )
-        )
-    );
-
-    const axisCreate$ = countryEvent$.pipe(
-        filter(({ deltas }) => deltas.axis !== undefined),
-        switchMap(event =>
-            from(event.populate("countryID")).pipe(
-                map((country: CountryDocType) =>
-                    create("current_axis", {
-                        title: `Axis units in ${country.name}`,
-                        message: `Changed by ${event.deltas.axis}!`,
-                        iconUrl: "placeholder.png",
-                        type: "basic",
-                    })
-                )
-            )
+    const axisCreate$ = settings$.pipe(
+        switchMap(({ userLocation, userLocationActive }) =>
+            !userLocationActive || !userLocation.axis
+                ? EMPTY
+                : countryEvent$.pipe(
+                      filter(({ deltas }) => deltas.axis !== undefined),
+                      switchMap(event =>
+                          from(event.populate("countryID")).pipe(
+                              map((country: CountryDocType) =>
+                                  create("current_axis", {
+                                      title: `Axis units in ${country.name}`,
+                                      message: `Changed by ${event.deltas.axis}!`,
+                                      iconUrl: "placeholder.png",
+                                      type: "basic",
+                                  })
+                              )
+                          )
+                      ),
+                      throttleTime(
+                          userLocation.cooldownActive
+                              ? userLocation.cooldown * 1000
+                              : 0
+                      )
+                  )
         )
     );
 
     const notification$ = merge(alliesCreate$, axisCreate$);
 
     return {
-        state: xs.merge(responseReducer$),
         notifications: obsToStream(notification$),
         DB: obsToStream(db$),
     };
 };
+
+export default units;

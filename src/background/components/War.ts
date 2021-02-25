@@ -1,21 +1,31 @@
-import { Stream, default as xs } from "xstream";
-import { switchMap, map } from "rxjs/operators";
-import delay from "xstream/extra/delay";
-import { Reducer, StateSource } from "@cycle/state";
+import { of, timer, merge, EMPTY } from "rxjs";
+import {
+    pluck,
+    map,
+    mapTo,
+    switchMap,
+    filter,
+    distinctUntilChanged,
+} from "rxjs/operators";
+
+import { Stream } from "xstream";
+import { Reducer, StateSource, withState } from "@cycle/state";
 
 import produce from "immer";
 
-import { Component, isSuccess } from "common/types";
-import { OptReducer } from "common/state";
+import { Component, isSuccess, isSome } from "common/types";
+import { OptReducer, InitReducer } from "common/state";
+import { streamToObs, obsToStream } from "common/connect";
 
 import { APISource } from "common/drivers/apiDriver";
-import { DBSource, DBAction } from "common/drivers/dbDriver";
 import {
     NotificationSource,
     NotificationActions,
     create,
     clear,
 } from "../drivers/notificationDriver";
+
+import { ChildProps } from "./Notifications";
 
 export interface State {
     active: boolean;
@@ -29,7 +39,7 @@ interface Sources {
     state: StateSource<State>;
     api: APISource;
     notifications: NotificationSource;
-    DB: DBSource;
+    props: ChildProps;
 }
 
 interface Sinks {
@@ -37,70 +47,101 @@ interface Sinks {
     notifications: Stream<NotificationActions>;
 }
 
-export const War: Component<Sources, Sinks> = ({
+export const war: Component<Sources, Sinks> = ({
     state,
     api,
     notifications,
+    props,
 }) => {
-    const response$ = api
-        .response("notifications")
-        .filter(isSuccess)
-        .map(({ data }) => data);
+    const response$ = streamToObs(api.response("notifications")).pipe(
+        filter(isSuccess),
+        pluck("data")
+    );
 
-    const create$ = state.stream
-        .map(state =>
-            state.active && !state.dismissed && !state.shown && state.timestamp
-                ? xs
-                      .of(undefined)
-                      .compose(
-                          delay(
-                              Math.max(0, state.timestamp * 1000 - Date.now())
-                          )
+    const active$ = props.settings$.pipe(pluck("war"), distinctUntilChanged());
+
+    const state$ = streamToObs(state.stream);
+
+    const create$ = state$.pipe(
+        switchMap(({ active }) =>
+            !active
+                ? EMPTY
+                : state$.pipe(
+                      filter(({ shown, dismissed }) => !shown && !dismissed),
+                      pluck("timestamp"),
+                      filter(isSome),
+                      switchMap(timestamp =>
+                          timer(Math.max(0, timestamp * 1000 - Date.now()))
                       )
-                : xs.empty<undefined>()
-        )
-        .flatten()
-        .mapTo(
+                  )
+        ),
+        mapTo(
             create("war", {
-                title: "Your war timer is up!",
+                title: "You war timer is up!",
                 message: "",
                 iconUrl: "placeholder.png",
                 type: "basic",
             })
-        );
-
-    const clear$ = response$
-        .filter(data => data.timers.war * 1000 > Date.now())
-        .mapTo(clear("war"));
-
-    const responseReducer$ = response$.map(data =>
-        OptReducer((state: State) =>
-            produce(state, draft => {
-                draft.timestamp = data.timers.war;
-            })
         )
     );
 
-    const notificationReducer$ = notifications.select("war").map(event =>
-        OptReducer((prev: State) =>
-            produce(prev, draft => {
-                switch (event.kind) {
-                    case "create":
-                        draft.shown = true;
-                        break;
-                    case "clear":
-                        draft.shown = false;
-                        draft.dismissed = false;
-                        break;
-                    case "dismissed":
-                        draft.dismissed = true;
-                }
-            })
+    const clear$ = state$.pipe(
+        pluck("timestamp"),
+        filter(isSome),
+        filter(timestamp => timestamp * 1000 > Date.now()),
+        mapTo(clear("war"))
+    );
+
+    const responseReducer$ = response$.pipe(
+        map(data =>
+            OptReducer((state: State) =>
+                produce(state, draft => {
+                    draft.timestamp = data.timers.war;
+                })
+            )
         )
     );
 
+    const notificationReducer$ = streamToObs(notifications.select("war")).pipe(
+        map(event =>
+            OptReducer((prev: State) =>
+                produce(prev, draft => {
+                    switch (event.kind) {
+                        case "create":
+                            draft.shown = true;
+                            break;
+                        case "clear":
+                            draft.shown = false;
+                            draft.dismissed = false;
+                            break;
+                        case "dismissed":
+                            draft.dismissed = true;
+                    }
+                })
+            )
+        )
+    );
+
+    const settingReducer$ = active$.pipe(
+        map(active => OptReducer<State>(state => ({ ...state, active })))
+    );
+
+    const initReducer$ = of(
+        InitReducer<State>({ active: false, shown: false, dismissed: false })
+    );
+
+    const notification$ = merge(create$, clear$);
+
+    const reducer$ = merge(
+        initReducer$,
+        notificationReducer$,
+        responseReducer$,
+        settingReducer$
+    );
     return {
-        notifications: xs.merge(create$, clear$),
-        state: xs.merge(responseReducer$, notificationReducer$),
+        notifications: obsToStream(notification$),
+        state: obsToStream(reducer$),
     };
 };
+
+export default withState(war);

@@ -1,7 +1,7 @@
 import { Stream, default as xs } from "xstream";
 import debounce from "xstream/extra/debounce";
 
-import { Observable } from "rxjs";
+import { Observable, merge } from "rxjs";
 import {
     switchMap,
     map,
@@ -9,6 +9,7 @@ import {
     pluck,
     switchMapTo,
     first,
+    share,
 } from "rxjs/operators";
 
 import { StateSource, Reducer, withState } from "@cycle/state";
@@ -57,7 +58,7 @@ const Root = (sources: Sources): Sinks => {
         });
     }
 
-    const apiKey$ = sources.DB.db$.pipe(
+    const user$ = sources.DB.db$.pipe(
         switchMap(
             db =>
                 db.player.findOne({
@@ -68,6 +69,10 @@ const Root = (sources: Sources): Sinks => {
                     },
                 }).$
         ),
+        share()
+    );
+
+    const apiKey$ = user$.pipe(
         filter(isSome),
         pluck("user"),
         filter(isSome),
@@ -107,11 +112,43 @@ const Root = (sources: Sources): Sinks => {
         )
     );
 
+    const standardSettings$ = user$.pipe(
+        filter(isSome),
+        filter(user => !user.settings),
+        map(
+            (user): DBAction => () =>
+                user.atomicPatch({
+                    settings: {
+                        notification: {
+                            refreshPeriod: 30,
+                            war: true,
+                            event: true,
+                            mail: true,
+                            training: true,
+                            reimburse: true,
+
+                            userLocationActive: true,
+                            userLocation: {
+                                allies: true,
+                                axis: true,
+
+                                cooldown: 60,
+                                cooldownActive: false,
+                            },
+                        },
+                    },
+                })
+        )
+    );
+
     const notificationsSinks = isolate(Notifications, {
         state: "notification",
     })(sources);
 
-    const ownSinks = { DB: obsToStream(update$), api: obsToStream(request$) };
+    const ownSinks = {
+        DB: obsToStream(merge(update$, standardSettings$)),
+        api: obsToStream(request$),
+    };
 
     return mergeSinks([notificationsSinks, ownSinks]);
 };

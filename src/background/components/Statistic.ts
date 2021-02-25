@@ -1,11 +1,21 @@
-import { Stream, default as xs } from "xstream";
-import delay from "xstream/extra/delay";
-import { Reducer, StateSource } from "@cycle/state";
+import { of, timer, merge, EMPTY } from "rxjs";
+import {
+    pluck,
+    map,
+    mapTo,
+    switchMap,
+    filter,
+    distinctUntilChanged,
+} from "rxjs/operators";
+
+import { Stream } from "xstream";
+import { Reducer, StateSource, withState } from "@cycle/state";
 
 import produce from "immer";
 
-import { Component, isSuccess } from "common/types";
-import { OptReducer } from "common/state";
+import { Component, isSuccess, isSome } from "common/types";
+import { OptReducer, InitReducer } from "common/state";
+import { streamToObs, obsToStream } from "common/connect";
 
 import { APISource } from "common/drivers/apiDriver";
 import {
@@ -14,6 +24,8 @@ import {
     create,
     clear,
 } from "../drivers/notificationDriver";
+
+import { ChildProps } from "./Notifications";
 
 export interface State {
     active: boolean;
@@ -32,6 +44,7 @@ interface Sources {
     state: StateSource<State>;
     api: APISource;
     notifications: NotificationSource;
+    props: ChildProps;
 }
 
 interface Sinks {
@@ -46,37 +59,40 @@ const stats: { [key: number]: string } = {
     4: "communication",
 };
 
-export const Statistic: Component<Sources, Sinks> = ({
+export const training: Component<Sources, Sinks> = ({
     state,
     api,
     notifications,
+    props,
 }) => {
-    const response$ = api
-        .response("notifications")
-        .filter(isSuccess)
-        .map(({ data }) => data)
-        .remember();
+    const response$ = streamToObs(api.response("notifications")).pipe(
+        filter(isSuccess),
+        pluck("data")
+    );
 
-    const create$ = state.stream
-        .map(state =>
-            state.api?.queued === 0 &&
-            state.active &&
-            !state.dismissed &&
-            !state.shown
-                ? xs
-                      .of(state.api.lastTrained)
-                      .compose(
-                          delay(
-                              Math.max(
-                                  0,
-                                  state.api.timestamp * 1000 - Date.now()
-                              )
-                          )
+    const active$ = props.settings$.pipe(
+        pluck("training"),
+        distinctUntilChanged()
+    );
+
+    const state$ = streamToObs(state.stream);
+
+    const create$ = state$.pipe(
+        switchMap(({ active }) =>
+            !active
+                ? EMPTY
+                : state$.pipe(
+                      filter(({ shown, dismissed }) => !shown && !dismissed),
+                      pluck("api"),
+                      filter(isSome),
+                      switchMap(({ timestamp, lastTrained }) =>
+                          timer(
+                              Math.max(0, timestamp * 1000 - Date.now())
+                          ).pipe(mapTo(lastTrained))
                       )
-                : xs.empty<number>()
-        )
-        .flatten()
-        .map(lastTrained =>
+                  )
+        ),
+        map(lastTrained =>
             create("statistic", {
                 title: "Your training queue is empty!",
                 message: lastTrained
@@ -85,51 +101,78 @@ export const Statistic: Component<Sources, Sinks> = ({
                 iconUrl: "placeholder.png",
                 type: "basic",
             })
-        );
-
-    const clear$ = state.stream
-        .filter(
-            state =>
-                state.api !== undefined &&
-                (state.api.queued > 0 ||
-                    state.api.timestamp * 1000 > Date.now())
-        )
-        .mapTo(clear("statistic"));
-
-    const notificationReducer$ = notifications.select("statistic").map(event =>
-        OptReducer((prev: State) =>
-            produce(prev, draft => {
-                switch (event.kind) {
-                    case "create":
-                        draft.shown = true;
-                        break;
-                    case "clear":
-                        draft.shown = false;
-                        draft.dismissed = false;
-                        break;
-                    case "dismissed":
-                        draft.dismissed = true;
-                        break;
-                }
-            })
         )
     );
 
-    const responseReducer$ = response$.map(data =>
-        OptReducer((state: State) =>
-            produce(state, draft => {
-                draft.api = {
-                    lastTrained: data.training.currentlyTraining,
-                    timestamp: data.timers.statistics,
-                    queued: data.training.queued.length,
-                    queueSize: data.training.queueSize,
-                };
-            })
+    const clear$ = state$.pipe(
+        pluck("api"),
+        filter(isSome),
+        filter(
+            ({ queued, timestamp }) =>
+                queued > 0 || timestamp * 1000 > Date.now()
+        ),
+        mapTo(clear("statistic"))
+    );
+
+    const notificationReducer$ = streamToObs(
+        notifications.select("statistic")
+    ).pipe(
+        map(event =>
+            OptReducer((prev: State) =>
+                produce(prev, draft => {
+                    switch (event.kind) {
+                        case "create":
+                            draft.shown = true;
+                            break;
+                        case "clear":
+                            draft.shown = false;
+                            draft.dismissed = false;
+                            break;
+                        case "dismissed":
+                            draft.dismissed = true;
+                            break;
+                    }
+                })
+            )
         )
+    );
+
+    const responseReducer$ = response$.pipe(
+        map(data =>
+            OptReducer((state: State) =>
+                produce(state, draft => {
+                    draft.api = {
+                        lastTrained: data.training.currentlyTraining,
+                        timestamp: data.timers.statistics,
+                        queued: data.training.queued.length,
+                        queueSize: data.training.queueSize,
+                    };
+                })
+            )
+        )
+    );
+
+    const settingReducer$ = active$.pipe(
+        map(active => OptReducer<State>(state => ({ ...state, active })))
+    );
+
+    const initReducer$ = of(
+        InitReducer<State>({ active: false, shown: false, dismissed: false })
+    );
+
+    const notification$ = merge(create$, clear$);
+
+    const reducer$ = merge(
+        initReducer$,
+        notificationReducer$,
+        responseReducer$,
+        settingReducer$
     );
 
     return {
-        notifications: xs.merge(create$, clear$),
-        state: xs.merge(notificationReducer$, responseReducer$),
+        notifications: obsToStream(notification$),
+        state: obsToStream(reducer$),
     };
 };
+
+export default withState(training);

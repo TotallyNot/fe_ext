@@ -1,6 +1,6 @@
 import { Stream, default as xs } from "xstream";
 
-import { timer, EMPTY, combineLatest, merge } from "rxjs";
+import { timer, EMPTY, combineLatest, merge, Observable } from "rxjs";
 import {
     switchMap,
     map,
@@ -8,6 +8,7 @@ import {
     filter,
     pluck,
     tap,
+    share,
     shareReplay,
     distinctUntilChanged,
 } from "rxjs/operators";
@@ -21,8 +22,6 @@ import produce from "immer";
 
 import { obsToStream, streamToObs } from "common/connect";
 
-import { NotificationInfo } from "common/models/runtime/notificationInfo";
-import { NotificationSettings } from "common/models/runtime/notificationSettings";
 import { Component, isSome, isSuccess } from "common/types";
 import { OptReducer, InitReducer } from "common/state";
 
@@ -34,17 +33,19 @@ import {
     NotificationActions,
 } from "../drivers/notificationDriver";
 
-import { State as EventState, Event } from "./Event";
-import { State as MailState, Mail } from "./Mail";
-import { State as StatisticState, Statistic } from "./Statistic";
-import { State as WarState, War } from "./War";
-import { State as TroopsState, Troops } from "./Troops";
+import event from "./Event";
+import mail from "./Mail";
+import training from "./Statistic";
+import unit from "./Troops";
+import war from "./War";
+
+import { PlayerDocType } from "common/models/db/player/types";
+
+export type ChildProps = {
+    settings$: Observable<Required<PlayerDocType>["settings"]["notification"]>;
+};
 
 export interface State {
-    settings: {
-        refreshPeriod: number;
-    };
-
     requests: {
         notifications?: {
             timestamp: number;
@@ -59,12 +60,6 @@ export interface State {
             timestamp: number;
         };
     };
-
-    events: EventState;
-    statistic: StatisticState;
-    mail: MailState;
-    war: WarState;
-    troops: TroopsState;
 }
 
 interface Sources {
@@ -94,11 +89,6 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const state$ = streamToObs(sources.state.stream).pipe(
         filter(isSome),
         shareReplay(1)
-    );
-
-    const refreshPeriod$ = state$.pipe(
-        pluck("settings", "refreshPeriod"),
-        distinctUntilChanged()
     );
 
     const apiKey$ = sources.DB.db$.pipe(
@@ -137,9 +127,25 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         map(state => state?.timestamp)
     );
 
-    const notificationSettings$ = sources.runtime.select(
-        "NotificationSettings",
-        NotificationSettings
+    const settings$ = sources.DB.db$.pipe(
+        switchMap(
+            db =>
+                db.player.findOne({
+                    selector: {
+                        user: {
+                            $exists: true,
+                        },
+                    },
+                }).$
+        ),
+        map(doc => doc?.settings?.notification),
+        filter(isSome),
+        share()
+    );
+
+    const refreshPeriod$ = settings$.pipe(
+        pluck("refreshPeriod"),
+        distinctUntilChanged()
     );
 
     const notificationRequest$ = combineLatest(
@@ -223,35 +229,6 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const initialReducer$ = xs.of(
         InitReducer<State>({
-            settings: {
-                refreshPeriod: 30,
-            },
-            events: {
-                active: true,
-                shown: false,
-                dismissed: false,
-            },
-            mail: {
-                active: true,
-                shown: false,
-                dismissed: false,
-            },
-            war: {
-                active: true,
-                shown: false,
-                dismissed: false,
-            },
-            statistic: {
-                active: true,
-                shown: false,
-                dismissed: false,
-            },
-            troops: {
-                active: true,
-                axis: true,
-                allies: true,
-                cooldown: 60,
-            },
             requests: {},
         })
     );
@@ -296,80 +273,17 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const settingsReducer$ = notificationSettings$.map(settings =>
-        OptReducer((state: State) =>
-            produce(state, draft => {
-                draft.events.active = settings.events;
-                draft.mail.active = settings.mail;
-                draft.war.active = settings.war;
-                draft.troops.active = settings.troops;
-                draft.troops.allies = settings.troopsAllies;
-                draft.troops.axis = settings.troopsAxis;
-                draft.troops.cooldown = settings.troopsCooldown;
-            })
-        )
-    );
+    const props = {
+        settings$,
+    };
 
-    const eventSinks = isolate(Event, { state: "events" })(sources);
+    const { state: _, ...childSources } = { ...sources, props };
 
-    const mailSinks = isolate(Mail, { state: "mail" })(sources);
-
-    const statisticSinks = isolate(Statistic, { state: "statistic" })(sources);
-
-    const warSinks = isolate(War, { state: "war" })(sources);
-
-    const troopsSinks = isolate(Troops, { state: "troops" })(sources);
-
-    const notificationInfo$ = state$.pipe(
-        map((state): NotificationInfo | undefined => {
-            if (
-                !state.statistic.api ||
-                !state.war.timestamp ||
-                !state.troops.country ||
-                !state.troops.units ||
-                state.events.unread === undefined ||
-                state.mail.unread === undefined
-            ) {
-                return undefined;
-            } else {
-                return {
-                    country: state.troops.country,
-                    timers: {
-                        war: state.war.timestamp,
-                        statistics: state.statistic.api.timestamp,
-                    },
-
-                    queue: {
-                        current: state.statistic.api.queued,
-                        size: state.statistic.api.queueSize,
-                    },
-
-                    units: state.troops.units,
-                    events: state.events.unread,
-                    mail: state.events.unread,
-                };
-            }
-        }),
-        filter(isSome),
-        map(info => ({ kind: "NotificationInfo", data: info }))
-    );
-
-    const settings$ = state$.pipe(
-        map(
-            (state): NotificationSettings => ({
-                refreshPeriod: state.settings.refreshPeriod,
-                events: state.events.active,
-                mail: state.mail.active,
-                statistic: state.statistic.active,
-                war: state.war.active,
-                troops: state.troops.active,
-                troopsAllies: state.troops.allies,
-                troopsAxis: state.troops.axis,
-                troopsCooldown: state.troops.cooldown,
-            })
-        ),
-        map(settings => ({ kind: "NotificationSettings", data: settings }))
-    );
+    const eventSinks = event(childSources);
+    const mailSinks = mail(childSources);
+    const trainingSinks = training(childSources);
+    const warSinks = war(childSources);
+    const unitSinks = unit(childSources);
 
     const update$ = sources.api
         .response("notifications")
@@ -377,7 +291,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
         .map(
             ({ data }): DBAction => db =>
                 db.player
-                    .find({
+                    .findOne({
                         selector: {
                             user: {
                                 $exists: true,
@@ -403,24 +317,23 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const ownSinks = {
         api: obsToStream(request$),
-        state: xs.merge(
+        state: xs.merge<Reducer<any>>(
             initialReducer$,
             sentNotificationReducer$,
             sentCountryReducer$,
             sentWorldReducer$,
-            sentUserReducer$,
-            settingsReducer$
+            sentUserReducer$
         ),
-        runtime: obsToStream(merge(notificationInfo$, settings$)),
         DB: update$,
+        runtime: xs.empty(),
     };
 
     return mergeSinks([
         ownSinks,
         eventSinks,
-        statisticSinks,
+        trainingSinks,
         mailSinks,
         warSinks,
-        troopsSinks,
+        unitSinks,
     ]);
 };
