@@ -78,8 +78,8 @@ export const training: Component<Sources, Sinks> = ({
     const state$ = streamToObs(state.stream);
 
     const create$ = state$.pipe(
-        switchMap(({ active }) =>
-            !active
+        switchMap(({ active, api }) =>
+            !active || api?.queued !== 0
                 ? EMPTY
                 : state$.pipe(
                       filter(({ shown, dismissed }) => !shown && !dismissed),

@@ -1,24 +1,17 @@
+import { switchMap, map, share } from "rxjs/operators";
+
 import { MainDOMSource } from "@cycle/dom";
-import { StateSource } from "@cycle/state";
 
 import { streamToObs } from "common/connect";
 
-import { BackgroundSource } from "common/drivers/backgroundDriver";
-import { NotificationSettings } from "common/models/runtime/notificationSettings";
-
-import { State } from "./model";
+import { DBSource } from "common/drivers/dbDriver";
 
 export interface Sources {
     DOM: MainDOMSource;
-    background: BackgroundSource;
-    state: StateSource<State>;
+    DB: DBSource;
 }
 
 export const intent = (sources: Sources) => {
-    const notificationSettings$ = streamToObs(
-        sources.background.select("NotificationSettings", NotificationSettings)
-    );
-
     const checkbox$ = streamToObs(
         sources.DOM.select("input[type=checkbox]").events("change")
     );
@@ -27,10 +20,27 @@ export const intent = (sources: Sources) => {
         sources.DOM.select("input[type=number]").events("change")
     );
 
+    const user$ = sources.DB.db$.pipe(
+        switchMap(
+            db =>
+                db.player.findOne({
+                    selector: {
+                        user: {
+                            $exists: true,
+                        },
+                    },
+                }).$
+        ),
+        share()
+    );
+
+    const settings$ = user$.pipe(map(result => result?.settings?.notification));
+
     return {
-        notificationSettings$,
         checkbox$,
         numberField$,
+        settings$,
+        user$,
     };
 };
 

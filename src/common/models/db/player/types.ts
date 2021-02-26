@@ -33,8 +33,8 @@ export type PlayerDocType = {
     };
 
     settings?: {
-        notificaction: {
-            refreshRate: number;
+        notification: {
+            refreshPeriod: number;
 
             event: boolean;
             mail: boolean;

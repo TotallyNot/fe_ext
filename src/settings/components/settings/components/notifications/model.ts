@@ -1,84 +1,84 @@
 import { merge } from "rxjs";
-import { map, first, skip } from "rxjs/operators";
-
-import { Reducer } from "@cycle/state";
-
-import produce from "immer";
+import {
+    map,
+    filter,
+    distinctUntilChanged,
+    withLatestFrom,
+} from "rxjs/operators";
 
 import { obsToStream } from "common/connect";
-import { OptReducer } from "common/state";
-import { NotificationSettings } from "common/models/runtime/notificationSettings";
+import { isSome } from "common/types";
+import { DBAction } from "common/drivers/dbDriver";
 
 import { Inputs } from "./intent";
 
-export interface State {
-    notification: NotificationSettings;
-    notificationOut: NotificationSettings;
+function shallowCompare<T>(prev: T, curr: T): boolean {
+    return !Object.keys(Object.assign({}, prev, curr)).find(
+        key => (prev as any)[key] !== (curr as any)[key]
+    );
 }
 
-type TypeKey<O, T> = {
-    [K in keyof O]: O[K] extends T ? K : never;
-}[keyof O];
-
-type CheckboxKey = TypeKey<NotificationSettings, boolean>;
-
-type NumberFieldKey = TypeKey<NotificationSettings, number>;
-
 export const model = (inputs: Inputs) => {
-    const initialReducer$ = inputs.notificationSettings$.pipe(
-        first(),
+    const checkboxAction$ = inputs.checkbox$.pipe(
+        withLatestFrom(inputs.user$.pipe(filter(isSome))),
         map(
-            (notification): Reducer<State> => () => ({
-                notification,
-                notificationOut: { ...notification },
-            })
-        )
-    );
+            ([event, user]): DBAction => () =>
+                user.atomicUpdate(old => {
+                    const value: boolean = (event.target as any).checked;
+                    const name: string = (event.target as any).name;
+                    const notification = old.settings?.notification;
+                    if (!notification) return old;
+                    if (
+                        [
+                            "war",
+                            "training",
+                            "reimburse",
+                            "event",
+                            "mail",
+                            "userLocationActive",
+                        ].includes(name)
+                    ) {
+                        (notification as any)[name] = value;
+                    } else {
+                        if (name === "userLocationAllies") {
+                            notification.userLocation.allies = value;
+                        } else if (name === "userLocationAxis") {
+                            notification.userLocation.axis = value;
+                        }
+                    }
 
-    const runtimeReducer$ = inputs.notificationSettings$.pipe(
-        skip(1),
-        map(notification =>
-            OptReducer((state: State) => ({
-                ...state,
-                notification,
-            }))
-        )
-    );
-
-    const checkboxReducer$ = inputs.checkbox$.pipe(
-        map(event =>
-            OptReducer((state: State) =>
-                produce(state, draft => {
-                    const target = event.target as any;
-                    const name = target.name as CheckboxKey;
-                    const checked = target.checked as boolean;
-
-                    draft.notificationOut[name] = checked;
+                    return old;
                 })
-            )
         )
     );
 
-    const numberFieldReducer$ = inputs.numberField$.pipe(
-        map(event =>
-            OptReducer((state: State) =>
-                produce(state, draft => {
-                    const target = event.target as any;
-                    const name = target.name as NumberFieldKey;
-                    const value = parseInt(target.value as string);
+    const inputAction$ = inputs.numberField$.pipe(
+        withLatestFrom(inputs.user$.pipe(filter(isSome))),
+        map(
+            ([event, user]): DBAction => () =>
+                user.atomicUpdate(old => {
+                    const value: number = parseInt((event.target as any).value);
+                    const name: string = (event.target as any).name;
+                    const notification = old.settings?.notification;
+                    if (!notification) return old;
 
-                    draft.notificationOut[name] = value;
+                    if (name === "refreshPeriod") {
+                        notification.refreshPeriod = value;
+                    } else if (name === "userLocationCooldown") {
+                        notification.userLocation.cooldown = value;
+                    }
+
+                    return old;
                 })
-            )
         )
     );
 
-    return obsToStream(
-        merge(
-            initialReducer$,
-            runtimeReducer$,
-            checkboxReducer$,
-            numberFieldReducer$
-        )
-    );
+    const DB$ = merge(checkboxAction$, inputAction$);
+
+    return {
+        DB: obsToStream(DB$),
+        settings$: inputs.settings$.pipe(distinctUntilChanged(shallowCompare)),
+    };
 };
+
+export type Output = ReturnType<typeof model>;

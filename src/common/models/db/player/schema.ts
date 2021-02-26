@@ -74,7 +74,7 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                 notification: {
                     type: "object",
                     properties: {
-                        refreshRate: {
+                        refreshPeriod: {
                             type: "number",
                         },
 

@@ -7,7 +7,7 @@ import { normalize, setupPage } from "csstips";
 
 import { background, text } from "common/styles";
 
-import { BackgroundDriver } from "common/drivers/backgroundDriver";
+import { makeDBDriver } from "common/drivers/dbDriver";
 
 import settings from "./components/settings";
 
@@ -28,6 +28,6 @@ cssRule("input[type=checkbox], input[type=number], label", {
 
 run(settings, {
     DOM: makeDOMDriver("#settings"),
-    background: BackgroundDriver(),
+    DB: makeDBDriver(),
     history: makeServerHistoryDriver(),
 });
