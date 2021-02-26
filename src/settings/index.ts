@@ -22,9 +22,6 @@ cssRule("#settings", {
     color: text.toString(),
     overflow: "auto",
 });
-cssRule("input[type=checkbox], input[type=number], label", {
-    verticalAlign: "middle",
-});
 
 run(settings, {
     DOM: makeDOMDriver("#settings"),

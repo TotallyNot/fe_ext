@@ -1,6 +1,7 @@
 import { merge } from "rxjs";
 import {
     map,
+    tap,
     filter,
     distinctUntilChanged,
     withLatestFrom,
@@ -44,6 +45,8 @@ export const model = (inputs: Inputs) => {
                             notification.userLocation.allies = value;
                         } else if (name === "userLocationAxis") {
                             notification.userLocation.axis = value;
+                        } else if (name === "userLocationCooldownActive") {
+                            notification.userLocation.cooldownActive = value;
                         }
                     }
 
@@ -63,7 +66,7 @@ export const model = (inputs: Inputs) => {
                     if (!notification) return old;
 
                     if (name === "refreshPeriod") {
-                        notification.refreshPeriod = value;
+                        notification.refreshPeriod = Math.max(15, value);
                     } else if (name === "userLocationCooldown") {
                         notification.userLocation.cooldown = value;
                     }

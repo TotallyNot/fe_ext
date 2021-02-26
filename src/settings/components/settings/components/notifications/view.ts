@@ -47,6 +47,8 @@ const box = classes(
     })
 );
 
+const inlineInput = style(width(60), margin(0, 5));
+
 export const view = (output: Output): Observable<VNode> =>
     output.settings$.pipe(
         map(settings =>
@@ -54,6 +56,22 @@ export const view = (output: Output): Observable<VNode> =>
                 ? div()
                 : div({ attrs: { class: container } }, [
                       h3({ attrs: { class: section } }, "Notifications"),
+                      label({ attrs: { for: "refreshPeriod" } }, [
+                          "API refresh period:",
+                          input({
+                              attrs: {
+                                  class: classes(textField, inlineInput),
+                                  value: settings.refreshPeriod,
+                              },
+                              props: {
+                                  id: "refreshPeriod",
+                                  name: "refreshPeriod",
+                                  type: "number",
+                                  min: "15",
+                              },
+                          }),
+                          "seconds",
+                      ]),
                       div({ attrs: { class: item } }, [
                           input({
                               props: {
@@ -103,7 +121,7 @@ export const view = (output: Output): Observable<VNode> =>
                                   name: "reimburse",
                               },
                               attrs: {
-                                  checked: settings.war,
+                                  checked: settings.reimburse,
                               },
                           }),
                           label(
@@ -184,22 +202,50 @@ export const view = (output: Output): Observable<VNode> =>
                               ),
                           ]),
                           div({ attrs: { class: item } }, [
-                              label(
-                                  { attrs: { for: "userLocationCooldown" } },
-                                  "Cooldown (in seconds):"
-                              ),
                               input({
                                   props: {
-                                      type: "number",
-                                      id: "userLocationCooldown",
-                                      name: "userLocationCooldown",
-                                      className: textField,
+                                      type: "checkbox",
+                                      id: "userLocationCooldownActive",
+                                      name: "userLocationCooldownActive",
                                   },
                                   attrs: {
-                                      value: settings.userLocation.cooldown,
+                                      checked:
+                                          settings.userLocation.cooldownActive,
                                       disabled: !settings.userLocationActive,
                                   },
                               }),
+                              label(
+                                  {
+                                      attrs: {
+                                          for: "userLocationCooldownActive",
+                                      },
+                                  },
+                                  [
+                                      "Cooldown between alerts:",
+                                      input({
+                                          props: {
+                                              type: "number",
+                                              id: "userLocationCooldown",
+                                              name: "userLocationCooldown",
+                                              min: "0",
+                                              className: classes(
+                                                  textField,
+                                                  inlineInput
+                                              ),
+                                          },
+                                          attrs: {
+                                              value:
+                                                  settings.userLocation
+                                                      .cooldown,
+                                              disabled:
+                                                  !settings.userLocationActive ||
+                                                  !settings.userLocation
+                                                      .cooldownActive,
+                                          },
+                                      }),
+                                      "seconds",
+                                  ]
+                              ),
                           ]),
                       ]),
                   ])
