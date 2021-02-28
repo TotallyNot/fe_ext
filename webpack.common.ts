@@ -1,5 +1,6 @@
 import { join } from "path";
 import { Configuration } from "webpack";
+import CopyPlugin from "copy-webpack-plugin";
 
 const config: Configuration = {
     entry: {
@@ -27,6 +28,28 @@ const config: Configuration = {
             common: join(__dirname, "src/common"),
         },
     },
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                {
+                    from: join(__dirname, "resources/manifest.json"),
+                    to: join(__dirname, "dist/manifest.json"),
+                    transform(content) {
+                        const manifest = JSON.parse(content.toString());
+                        const packageJSON = require("./package.json");
+
+                        manifest.version = packageJSON.version;
+                        manifest.version_name = `v${packageJSON.version}`;
+                        manifest.name = packageJSON.name;
+                        manifest.description = packageJSON.description;
+                        manifest.author = packageJSON.author;
+
+                        return Buffer.from(JSON.stringify(manifest, null, 4));
+                    },
+                },
+            ],
+        }),
+    ],
 };
 
 export default config;

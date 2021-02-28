@@ -2,7 +2,7 @@
 *.swp
 
 dist/js
-dist/licenses.json
+dist/*.json
 node_modules
 
 .DS_Store
