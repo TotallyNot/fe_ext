@@ -6,6 +6,7 @@ const config: Configuration = {
         background: join(__dirname, "src/background/index.ts"),
         popup: join(__dirname, "src/popup/index.ts"),
         settings: join(__dirname, "src/settings/index.ts"),
+        acknowledgements: join(__dirname, "src/acknowledgements/index.ts"),
     },
     output: {
         path: join(__dirname, "dist/js"),

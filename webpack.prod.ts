@@ -11,7 +11,9 @@ export default merge(common, {
         new DefinePlugin({
             __DEBUG__: false,
         }),
-        new LicensePlugin(),
+        new LicensePlugin({
+            outputFilename: "../licenses.json",
+        }),
     ],
 
     optimization: {

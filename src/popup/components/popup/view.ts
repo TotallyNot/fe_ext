@@ -6,9 +6,16 @@ import { browser } from "webextension-polyfill-ts";
 import { State } from "./model";
 
 import { classes, style } from "typestyle";
-import { flex, vertical, content, horizontal } from "csstips";
+import { flex, vertical, content, horizontal, padding, margin } from "csstips";
 
-import { primary, allies, axis, outlineButton } from "common/styles";
+import {
+    primary,
+    allies,
+    axis,
+    outlineButton,
+    box,
+    background,
+} from "common/styles";
 
 const container = style(vertical, {
     padding: 5,
@@ -17,14 +24,20 @@ const item = style(flex);
 const centerText = style({ textAlign: "center" });
 const spacer = style(content, { height: 12 });
 const row = style(content, horizontal);
-const column = style(flex, vertical, { alignItems: "center" });
-const timerTitle = style(content, {
+const column = style(flex, vertical, padding(3, 5), margin(0, 5), {
+    alignItems: "flex-start",
+    $nest: {
+        "&:hover": {
+            backgroundColor: background.lighten(0.1).toString(),
+        },
+    },
+});
+const timerTitle = style(content, margin(0, 0, 3, 0), {
     color: primary.toString(),
-    marginBottom: 2,
+    fontSize: 10,
 });
 const timer = style(content, {
-    fontSize: 10,
-    fontFamily: "'Monaco', monospace",
+    fontSize: 13,
 });
 const alliesLabel = style(content, { color: allies.toString() });
 const axisLabel = style(content, { color: axis.toString() });
@@ -41,14 +54,14 @@ export const view = (model: StateSource<State>) =>
                 div({ class: { [spacer]: true } }),
                 state.timers &&
                     div({ props: { className: classes(row) } }, [
-                        div({ props: { className: column } }, [
+                        div({ props: { className: classes(column, box) } }, [
                             span({ props: { className: timerTitle } }, "War"),
                             span(
                                 { props: { className: timer } },
                                 state.timers.war
                             ),
                         ]),
-                        div({ props: { className: column } }, [
+                        div({ props: { className: classes(column, box) } }, [
                             span(
                                 { props: { className: timerTitle } },
                                 "Training"
@@ -58,7 +71,7 @@ export const view = (model: StateSource<State>) =>
                                 state.timers.training
                             ),
                         ]),
-                        div({ props: { className: column } }, [
+                        div({ props: { className: classes(column, box) } }, [
                             span(
                                 { props: { className: timerTitle } },
                                 "Reimb."
