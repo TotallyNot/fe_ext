@@ -13,7 +13,13 @@ const container = style(vertical, width(400), {
     margin: "0 auto",
 });
 
-export const view = (state$: Stream<State>, notification$: Stream<VNode>) =>
+export const view = (
+    state$: Stream<State>,
+    user$: Stream<VNode>,
+    notification$: Stream<VNode>
+) =>
     xs
-        .combine(state$, notification$)
-        .map(([state, notificationDOM]) => notificationDOM);
+        .combine(state$, user$, notification$)
+        .map(([state, userDOM, notificationDOM]) =>
+            div([userDOM, notificationDOM])
+        );

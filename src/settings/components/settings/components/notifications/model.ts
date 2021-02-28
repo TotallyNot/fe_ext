@@ -1,7 +1,6 @@
 import { merge } from "rxjs";
 import {
     map,
-    tap,
     filter,
     distinctUntilChanged,
     withLatestFrom,
@@ -9,15 +8,10 @@ import {
 
 import { obsToStream } from "common/connect";
 import { isSome } from "common/types";
+import { deepCompare } from "common/util";
 import { DBAction } from "common/drivers/dbDriver";
 
 import { Inputs } from "./intent";
-
-function shallowCompare<T>(prev: T, curr: T): boolean {
-    return !Object.keys(Object.assign({}, prev, curr)).find(
-        key => (prev as any)[key] !== (curr as any)[key]
-    );
-}
 
 export const model = (inputs: Inputs) => {
     const checkboxAction$ = inputs.checkbox$.pipe(
@@ -80,7 +74,7 @@ export const model = (inputs: Inputs) => {
 
     return {
         DB: obsToStream(DB$),
-        settings$: inputs.settings$.pipe(distinctUntilChanged(shallowCompare)),
+        settings$: inputs.settings$.pipe(distinctUntilChanged(deepCompare)),
     };
 };
 

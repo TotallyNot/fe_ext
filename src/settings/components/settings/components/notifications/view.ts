@@ -1,7 +1,7 @@
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
-import { VNode, div, input, label, h3, h4, p } from "@cycle/dom";
+import { VNode, div, input, label, h3, h4 } from "@cycle/dom";
 import { style, classes } from "typestyle";
 import { vertical, flex, width, padding, margin, horizontal } from "csstips";
 

@@ -4,6 +4,7 @@ import { mergeSinks } from "cyclejs-utils";
 import { withState } from "@cycle/state";
 
 import notifications from "./components/notifications";
+import user from "./components/user";
 
 import { intent, Sources } from "./intent";
 import { model } from "./model";
@@ -13,9 +14,14 @@ const settings = (sources: Sources) => {
     const actions = intent(sources);
     const reducers = model(actions);
 
+    const userSinks = isolate(user, "user")(sources);
     const notificationSinks = isolate(notifications, "notification")(sources);
 
-    const DOM = view(sources.state.stream, notificationSinks.DOM);
+    const DOM = view(
+        sources.state.stream,
+        userSinks.DOM,
+        notificationSinks.DOM
+    );
 
     // get state stream started :/
     sources.state.stream.endWhen(DOM).addListener({});
@@ -30,7 +36,7 @@ const settings = (sources: Sources) => {
     };
 
     return {
-        ...mergeSinks([ownSinks, notificationSinks]),
+        ...mergeSinks([ownSinks, notificationSinks, userSinks]),
         DOM,
     };
 };
