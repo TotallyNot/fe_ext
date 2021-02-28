@@ -94,17 +94,21 @@ export class APISource {
                         data: { code: body.data.code, reason: body.reason },
                     };
                 } else {
-                    const result = payload.safeParse(body);
-                    if (result.success) {
-                        return { type: "success", data: result.value.data };
+                    if (__DEBUG__) {
+                        const result = payload.safeParse(body);
+                        if (result.success) {
+                            return { type: "success", data: result.value.data };
+                        } else {
+                            return {
+                                type: "failure",
+                                data: {
+                                    code: -1,
+                                    reason: result.message,
+                                },
+                            };
+                        }
                     } else {
-                        return {
-                            type: "failure",
-                            data: {
-                                code: -1,
-                                reason: result.message,
-                            },
-                        };
+                        return body;
                     }
                 }
             }),

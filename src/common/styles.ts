@@ -1,5 +1,6 @@
 import { color, rgba } from "csx";
-import { style } from "typestyle";
+import { style, classes } from "typestyle";
+import { vertical, horizontal, flex, width, padding, margin } from "csstips";
 
 export const background = color("#333333");
 export const text = color("#FFFFFF");
@@ -22,6 +23,13 @@ export const outlineButton = style({
         "&:hover": {
             borderColor: primary.lighten(0.1).toString(),
             color: primary.lighten(0.1).toString(),
+        },
+        "&:focus": {
+            outline: "none",
+        },
+        "&:active": {
+            borderColor: primary.darken(0.1).toString(),
+            color: primary.darken(0.1).toString(),
         },
     },
 });
@@ -46,3 +54,48 @@ export const textField = style({
         },
     },
 });
+
+export const container = style(
+    vertical,
+    width(400),
+    padding(0, 10),
+    margin(0, 0, 20, 0)
+);
+
+export const item = style(horizontal, {
+    alignItems: "center",
+    $nest: {
+        "input[type=checkbox]": {
+            marginRight: 5,
+        },
+        "input[type=number]": {
+            marginLeft: 5,
+        },
+        "&:not(:last-child)": {
+            marginBottom: 10,
+        },
+    },
+});
+
+export const checkboxRow = classes(
+    item,
+    style({
+        $nest: {
+            label: {
+                marginRight: 15,
+            },
+        },
+    })
+);
+
+export const section = style(margin(5, 0, 10, 0));
+
+export const subSection = style(margin(3, 0, 7, 0));
+
+export const box = classes(
+    style(padding(10, 15), vertical, flex, {
+        backgroundColor: background.lighten(0.05).toString(),
+    })
+);
+
+export const inlineInput = style(width(60), margin(0, 5));

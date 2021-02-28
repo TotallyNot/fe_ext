@@ -1,10 +1,10 @@
-import { Stream, default as xs } from "xstream";
-import debounce from "xstream/extra/debounce";
+import { Stream } from "xstream";
 
 import { Observable, merge } from "rxjs";
 import {
     switchMap,
     map,
+    mapTo,
     filter,
     pluck,
     switchMapTo,
@@ -51,12 +51,14 @@ export interface Sinks {
 }
 
 const Root = (sources: Sources): Sinks => {
+    /*
     if (__DEBUG__) {
         sources.state.stream.compose(debounce(100)).addListener({
             next: console.log,
             error: console.log,
         });
     }
+    */
 
     const user$ = sources.DB.db$.pipe(
         switchMap(
@@ -77,6 +79,27 @@ const Root = (sources: Sources): Sinks => {
         pluck("user"),
         filter(isSome),
         pluck("apiKey")
+    );
+
+    const logout$ = streamToObs(sources.api.errors()).pipe(
+        filter(error => error.data.code === 1),
+        mapTo<{}, DBAction>(db =>
+            db.player
+                .findOne({
+                    selector: {
+                        user: {
+                            $exists: true,
+                        },
+                    },
+                })
+                .exec()
+                .then(player =>
+                    player?.atomicUpdate(old => {
+                        delete old.user;
+                        return old;
+                    })
+                )
+        )
     );
 
     const request$ = sources.DB.db$.pipe(
@@ -146,7 +169,7 @@ const Root = (sources: Sources): Sinks => {
     })(sources);
 
     const ownSinks = {
-        DB: obsToStream(merge(update$, standardSettings$)),
+        DB: obsToStream(merge(update$, standardSettings$, logout$)),
         api: obsToStream(request$),
     };
 

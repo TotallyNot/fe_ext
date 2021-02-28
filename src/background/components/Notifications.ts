@@ -13,7 +13,6 @@ import {
     distinctUntilChanged,
 } from "rxjs/operators";
 
-import isolate from "@cycle/isolate";
 import { Reducer, StateSource } from "@cycle/state";
 
 import { mergeSinks } from "cyclejs-utils";
@@ -298,21 +297,31 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                             },
                         },
                     })
-                    .update({
-                        $set: {
-                            "user.notification": {
+                    .exec()
+                    .then(record =>
+                        record?.atomicUpdate(old => {
+                            if (!old.user) return old;
+
+                            old.user.notification = {
                                 war: data.timers.war,
                                 events: data.unreadEvents,
                                 mail: data.unreadMails,
                                 reimburse: data.timers.reimbursement,
-                            },
-                            "user.training": {
+                            };
+
+                            old.user.training = {
                                 timer: data.timers.statistics,
                                 queue: data.training.queued.length,
                                 queueSize: data.training.queueSize,
-                            },
-                        },
-                    })
+                                lastTrained: data.training.currentlyTraining as
+                                    | 1
+                                    | 2
+                                    | 3
+                                    | 4,
+                            };
+                            return old;
+                        })
+                    )
         );
 
     const ownSinks = {

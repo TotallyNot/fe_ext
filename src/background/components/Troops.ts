@@ -1,6 +1,6 @@
 import { Stream } from "xstream";
 
-import { merge, from, asapScheduler, EMPTY } from "rxjs";
+import { merge, from, asyncScheduler, EMPTY } from "rxjs";
 import {
     filter,
     groupBy,
@@ -49,7 +49,7 @@ interface Sinks {
 export const units: Component<Sources, Sinks> = sources => {
     const country$ = streamToObs(sources.api.response("world")).pipe(
         filter(isSuccess),
-        observeOn(asapScheduler),
+        observeOn(asyncScheduler),
         mergeMap(({ data }) => from(data)),
         share()
     );
@@ -58,6 +58,7 @@ export const units: Component<Sources, Sinks> = sources => {
 
     const insertEvents$ = country$.pipe(
         groupBy(country => country.id),
+        observeOn(asyncScheduler),
         mergeMap(country$ =>
             country$.pipe(
                 pairwise(),
