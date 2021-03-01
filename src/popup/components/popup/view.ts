@@ -26,11 +26,6 @@ const spacer = style(content, { height: 12 });
 const row = style(content, horizontal);
 const column = style(flex, vertical, padding(3, 5), margin(0, 5), {
     alignItems: "flex-start",
-    $nest: {
-        "&:hover": {
-            backgroundColor: background.lighten(0.1).toString(),
-        },
-    },
 });
 const timerTitle = style(content, margin(0, 0, 3, 0), {
     color: primary.toString(),
@@ -54,14 +49,14 @@ export const view = (model: StateSource<State>) =>
                 div({ class: { [spacer]: true } }),
                 state.timers &&
                     div({ props: { className: classes(row) } }, [
-                        div({ props: { className: classes(column, box) } }, [
+                        div({ props: { className: classes(column) } }, [
                             span({ props: { className: timerTitle } }, "War"),
                             span(
                                 { props: { className: timer } },
                                 state.timers.war
                             ),
                         ]),
-                        div({ props: { className: classes(column, box) } }, [
+                        div({ props: { className: classes(column) } }, [
                             span(
                                 { props: { className: timerTitle } },
                                 "Training"
@@ -71,7 +66,7 @@ export const view = (model: StateSource<State>) =>
                                 state.timers.training
                             ),
                         ]),
-                        div({ props: { className: classes(column, box) } }, [
+                        div({ props: { className: classes(column) } }, [
                             span(
                                 { props: { className: timerTitle } },
                                 "Reimb."

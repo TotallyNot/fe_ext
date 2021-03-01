@@ -1,14 +1,19 @@
 import { map } from "rxjs/operators";
 
-import { div, p, h2 } from "@cycle/dom";
+import { div, p, h1, h2 } from "@cycle/dom";
 
 import { Inputs } from "./intent";
 
 export const view = (inputs: Inputs) =>
     inputs.licenses$.pipe(
         map(licenses =>
-            div(
-                licenses.map(license =>
+            div([
+                h1("Open Source License Acknowledgements"),
+                p(
+                    "(name pending) utilizes third-party open source software subject to the licenses described below."
+                ),
+
+                ...licenses.map(license =>
                     div([
                         h2(license.name),
                         p(
@@ -18,7 +23,7 @@ export const view = (inputs: Inputs) =>
                         ),
                         license.licenseText && p(license.licenseText),
                     ])
-                )
-            )
+                ),
+            ])
         )
     );

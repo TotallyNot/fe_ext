@@ -52,7 +52,7 @@ export const view = (inputs: Inputs) =>
                             target: "_blank",
                         },
                     },
-                    "Open Source Software Acknowledgements"
+                    "Open Source License Acknowledgements"
                 ),
             ])
         )

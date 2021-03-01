@@ -5,11 +5,9 @@ import { VNode, div, input, label, h3, h4, span } from "@cycle/dom";
 import { style, classes } from "typestyle";
 import { vertical, flex, width, padding, margin, horizontal } from "csstips";
 
-import { textField, background, primary } from "common/styles";
+import { textField, background, primary, container } from "common/styles";
 
 import { Output } from "./model";
-
-const container = style(vertical, width(400), padding(0, 10));
 
 const item = style(horizontal, {
     alignItems: "center",
