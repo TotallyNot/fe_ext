@@ -1,6 +1,7 @@
 import { join } from "path";
 import { Configuration } from "webpack";
 import CopyPlugin from "copy-webpack-plugin";
+import LicensePlugin from "webpack-license-plugin";
 
 const config: Configuration = {
     entry: {
@@ -48,6 +49,9 @@ const config: Configuration = {
                     },
                 },
             ],
+        }),
+        new LicensePlugin({
+            outputFilename: join("..", "licenses.json"),
         }),
     ],
 };

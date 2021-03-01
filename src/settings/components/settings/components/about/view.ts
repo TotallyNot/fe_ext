@@ -43,7 +43,9 @@ export const view = (inputs: Inputs) =>
                         "GitHub"
                     ),
                 ]),
-                p("This software is licensed under the BSD 3-clause license."),
+                p(
+                    "This software is distributed under the BSD 3-clause license."
+                ),
                 a(
                     {
                         attrs: {
