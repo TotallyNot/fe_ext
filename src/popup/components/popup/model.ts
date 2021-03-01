@@ -69,7 +69,7 @@ export const model = ({ user$, country$ }: Inputs) => {
 
                     war: notification.war,
                     training: training.timer,
-                    reimburse: 0,
+                    reimburse: notification.reimburse,
 
                     queue: training.queue,
                     queueSize: training.queueSize,

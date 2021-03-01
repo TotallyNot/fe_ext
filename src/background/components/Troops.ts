@@ -47,16 +47,24 @@ interface Sinks {
 }
 
 export const units: Component<Sources, Sinks> = sources => {
-    const country$ = streamToObs(sources.api.response("world")).pipe(
+    const world$ = streamToObs(sources.api.response("world")).pipe(
         filter(isSuccess),
         observeOn(asyncScheduler),
         mergeMap(({ data }) => from(data)),
         share()
     );
 
+    const country$ = streamToObs(sources.api.response("country")).pipe(
+        filter(isSuccess),
+        pluck("data"),
+        share()
+    );
+
+    const countries$ = merge(world$, country$);
+
     const settings$ = sources.props.settings$;
 
-    const insertEvents$ = country$.pipe(
+    const insertEvents$ = countries$.pipe(
         groupBy(country => country.id),
         observeOn(asyncScheduler),
         mergeMap(country$ =>
@@ -158,7 +166,7 @@ export const units: Component<Sources, Sinks> = sources => {
         )
     );
 
-    const updateUnits$ = country$.pipe(
+    const updateUnits$ = countries$.pipe(
         withLatestFrom(currentCountry$),
         filter(([country, countryID]) => country.id === countryID),
         distinctUntilChanged(
