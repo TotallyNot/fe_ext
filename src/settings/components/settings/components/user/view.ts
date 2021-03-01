@@ -1,7 +1,7 @@
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
-import { VNode, div, h3, h4, label, input, button } from "@cycle/dom";
+import { VNode, div, h3, label, input, button } from "@cycle/dom";
 import { style, classes } from "typestyle";
 import { width, margin } from "csstips";
 
@@ -13,7 +13,7 @@ import {
     item,
 } from "common/styles";
 
-const apiKey = style(width(100), margin(0, 7));
+const apiKey = style(width(110), margin(0, 7));
 
 import { State } from "./model";
 
@@ -34,6 +34,7 @@ export const view = (state$: State): Observable<VNode> =>
                                   value: state.apiKey,
                                   disabled: true,
                                   id: "apiKey",
+                                  name: "key",
                               },
                           }),
                           button(
@@ -57,6 +58,7 @@ export const view = (state$: State): Observable<VNode> =>
                               attrs: {
                                   class: classes(apiKey, textField),
                                   id: "apiKey",
+                                  name: "key",
                               },
                           }),
                           button(

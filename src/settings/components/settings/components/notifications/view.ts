@@ -1,11 +1,11 @@
 import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
-import { VNode, div, input, label, h3, h4 } from "@cycle/dom";
+import { VNode, div, input, label, h3, h4, span } from "@cycle/dom";
 import { style, classes } from "typestyle";
 import { vertical, flex, width, padding, margin, horizontal } from "csstips";
 
-import { textField, background } from "common/styles";
+import { textField, background, primary } from "common/styles";
 
 import { Output } from "./model";
 
@@ -42,10 +42,20 @@ const section = style(margin(5, 0, 10, 0));
 const subSection = style(margin(3, 0, 7, 0));
 
 const box = classes(
-    style(padding(10, 15), vertical, flex, {
+    style(vertical, flex, {
         backgroundColor: background.lighten(0.05).toString(),
+        alignItems: "flex-start",
     })
 );
+
+const dataBox = style(padding(5, 0, 10, 15));
+
+const countryNotif = style(padding(10, 15));
+
+const boxTitle = style(margin(0, 0, 7, 0), {
+    fontSize: 14,
+    color: primary.toString(),
+});
 
 const inlineInput = style(width(60), margin(0, 5));
 
@@ -56,21 +66,33 @@ export const view = (output: Output): Observable<VNode> =>
                 ? div()
                 : div({ attrs: { class: container } }, [
                       h3({ attrs: { class: section } }, "Notifications"),
-                      label({ attrs: { for: "refreshPeriod" } }, [
-                          "API refresh period:",
-                          input({
-                              attrs: {
-                                  class: classes(textField, inlineInput),
-                                  value: settings.refreshPeriod,
-                              },
-                              props: {
-                                  id: "refreshPeriod",
-                                  name: "refreshPeriod",
-                                  type: "number",
-                                  min: "15",
-                              },
-                          }),
-                          "seconds",
+                      div({ attrs: { class: item } }, [
+                          label({ attrs: { for: "refreshPeriod" } }, [
+                              "API refresh period:",
+                              input({
+                                  attrs: {
+                                      class: classes(textField, inlineInput),
+                                      value: settings.refreshPeriod,
+                                  },
+                                  props: {
+                                      id: "refreshPeriod",
+                                      name: "refreshPeriod",
+                                      type: "number",
+                                      min: "15",
+                                  },
+                              }),
+                              "seconds",
+                          ]),
+                      ]),
+                      div({ attrs: { class: classes(item, box, dataBox) } }, [
+                          h4({ attrs: { class: boxTitle } }, "data usage:"),
+                          span(
+                              `~${Math.round(
+                                  (60 / settings.refreshPeriod) * 80
+                              )}kB per minute / ~${Math.round(
+                                  88.4 / settings.refreshPeriod
+                              ) * 80}mB per day`
+                          ),
                       ]),
                       div({ attrs: { class: item } }, [
                           input({
@@ -168,7 +190,7 @@ export const view = (output: Output): Observable<VNode> =>
                           ),
                       ]),
 
-                      div({ attrs: { class: box } }, [
+                      div({ attrs: { class: classes(box, countryNotif) } }, [
                           div({ attrs: { class: checkboxRow } }, [
                               input({
                                   props: {

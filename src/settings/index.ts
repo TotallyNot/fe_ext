@@ -8,6 +8,7 @@ import { normalize, setupPage } from "csstips";
 import { background, text } from "common/styles";
 
 import { makeDBDriver } from "common/drivers/dbDriver";
+import { APIDriver } from "common/drivers/apiDriver";
 
 import settings from "./components/settings";
 
@@ -27,4 +28,5 @@ run(settings, {
     DOM: makeDOMDriver("#settings"),
     DB: makeDBDriver(),
     history: makeServerHistoryDriver(),
+    API: APIDriver(),
 });

@@ -34,7 +34,9 @@ export const intent = (sources: Sources) => {
         share()
     );
 
-    const settings$ = user$.pipe(map(result => result?.settings?.notification));
+    const settings$ = user$.pipe(
+        map(result => result?.toJSON().settings?.notification)
+    );
 
     return {
         checkbox$,
