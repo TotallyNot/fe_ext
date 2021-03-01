@@ -15,20 +15,21 @@ const login = (sources: Sources) => {
 
     // get state stream started :/
     sources.state.stream.endWhen(DOM).addListener({});
+    const DB = actions.success$
+        .compose(sampleCombine(actions.login$))
+        .map<DBAction>(([user, apiKey]) => db =>
+            db.player.upsert({
+                id: user.id,
+                name: user.name,
+                team: user.team,
+                user: { apiKey },
+            })
+        );
 
     return {
         DOM: DOM,
         state: model(actions).state,
-        DB: actions.success$
-            .compose(sampleCombine(actions.login$))
-            .map<DBAction>(([user, apiKey]) => db =>
-                db.player.upsert({
-                    id: user.id,
-                    name: user.name,
-                    team: user.team,
-                    user: { apiKey },
-                })
-            ),
+        DB,
         api: actions.login$.map<APIRequest>(apiKey => ({
             apiKey,
             selection: "user",

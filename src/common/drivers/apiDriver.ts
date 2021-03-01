@@ -1,12 +1,12 @@
 import { Stream } from "xstream";
-import { from, of, Observable } from "rxjs";
+import { from, of, Observable, ReplaySubject } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
     mergeMap,
     map,
     filter,
     catchError,
-    share,
+    shareReplay,
     pluck,
 } from "rxjs/operators";
 import { adapt } from "@cycle/run/lib/adapt";
@@ -46,36 +46,39 @@ const toCategory = (selection: string, id?: number) =>
     id ? `${selection}-${id}` : selection;
 
 export class APISource {
-    response$: Observable<{ body: any; category: string }>;
+    response$: ReplaySubject<{ body: any; category: string }>;
 
     constructor(apiRequest$: Stream<APIRequest>) {
-        this.response$ = streamToObs(apiRequest$).pipe(
-            mergeMap(request =>
-                toFetch(request).pipe(
-                    mergeMap(response =>
-                        from(
-                            response.json().catch(() => ({
+        this.response$ = new ReplaySubject(1);
+
+        streamToObs(apiRequest$)
+            .pipe(
+                mergeMap(request =>
+                    toFetch(request).pipe(
+                        mergeMap(response =>
+                            from(
+                                response.json().catch(() => ({
+                                    error: true,
+                                    reason: response.statusText,
+                                    data: { code: response.status },
+                                }))
+                            )
+                        ),
+                        catchError(error =>
+                            of({
                                 error: true,
-                                reason: response.statusText,
-                                data: { code: response.status },
-                            }))
-                        )
-                    ),
-                    catchError(error =>
-                        of({
-                            error: true,
-                            reason: error.message,
-                            data: { code: -1 },
-                        })
-                    ),
-                    map(body => ({
-                        body,
-                        category: toCategory(request.selection, request.id),
-                    }))
+                                reason: error.message,
+                                data: { code: -1 },
+                            })
+                        ),
+                        map(body => ({
+                            body,
+                            category: toCategory(request.selection, request.id),
+                        }))
+                    )
                 )
-            ),
-            share()
-        );
+            )
+            .subscribe(this.response$);
     }
 
     response<K extends keyof API>(
@@ -87,32 +90,40 @@ export class APISource {
 
         const result$ = this.response$.pipe(
             filter(response => response.category === category),
-            map(({ body }) => {
-                if (error.test(body)) {
-                    return {
-                        type: "failure",
-                        data: { code: body.data.code, reason: body.reason },
-                    };
-                } else {
-                    if (__DEBUG__) {
-                        const result = payload.safeParse(body);
-                        if (result.success) {
-                            return { type: "success", data: result.value.data };
-                        } else {
-                            return {
-                                type: "failure",
-                                data: {
-                                    code: -1,
-                                    reason: result.message,
-                                },
-                            };
-                        }
+            map(
+                ({ body }): APIResult<K> => {
+                    if (error.test(body)) {
+                        return {
+                            type: "failure",
+                            data: {
+                                code: body.data.code,
+                                reason: body.reason || undefined,
+                            },
+                        };
                     } else {
-                        return body;
+                        if (__DEBUG__) {
+                            const result = payload.safeParse(body);
+                            if (result.success) {
+                                return {
+                                    type: "success",
+                                    data: result.value.data,
+                                };
+                            } else {
+                                return {
+                                    type: "failure",
+                                    data: {
+                                        code: -1,
+                                        reason: result.message,
+                                    },
+                                };
+                            }
+                        } else {
+                            return { type: "success", data: body.data };
+                        }
                     }
                 }
-            }),
-            share()
+            ),
+            shareReplay(1)
         );
 
         return adapt(obsToStream(result$));
@@ -122,7 +133,7 @@ export class APISource {
         const error$ = this.response$.pipe(
             pluck("body"),
             filter(FEError.test),
-            share()
+            shareReplay(1)
         );
 
         return adapt(obsToStream(error$));
