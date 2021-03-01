@@ -34,6 +34,7 @@ import mail from "./Mail";
 import training from "./Statistic";
 import unit from "./Troops";
 import war from "./War";
+import reimbursement from "./reimbursement";
 
 import { PlayerDocType } from "common/models/db/player/types";
 
@@ -155,6 +156,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const trainingSinks = training(childSources);
     const warSinks = war(childSources);
     const unitSinks = unit(childSources);
+    const reimburseSinks = reimbursement(childSources);
 
     const update$ = sources.api
         .response("notifications")
@@ -204,7 +206,15 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     };
 
     return mergeSinks(
-        [ownSinks, eventSinks, trainingSinks, mailSinks, warSinks, unitSinks],
+        [
+            ownSinks,
+            eventSinks,
+            trainingSinks,
+            mailSinks,
+            warSinks,
+            unitSinks,
+            reimburseSinks,
+        ],
         { state: () => ownSinks.state }
     );
 };
