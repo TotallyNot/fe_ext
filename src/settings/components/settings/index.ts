@@ -5,6 +5,7 @@ import { withState } from "@cycle/state";
 
 import notifications from "./components/notifications";
 import user from "./components/user";
+import about from "./components/about";
 
 import { intent, Sources } from "./intent";
 import { model } from "./model";
@@ -16,11 +17,13 @@ const settings = (sources: Sources) => {
 
     const userSinks = isolate(user, "user")(sources);
     const notificationSinks = isolate(notifications, "notification")(sources);
+    const aboutSinks = isolate(about, "about")(sources);
 
     const DOM = view(
         sources.state.stream,
         userSinks.DOM,
-        notificationSinks.DOM
+        notificationSinks.DOM,
+        aboutSinks.DOM
     );
 
     // get state stream started :/
@@ -36,7 +39,7 @@ const settings = (sources: Sources) => {
     };
 
     return {
-        ...mergeSinks([ownSinks, notificationSinks, userSinks]),
+        ...mergeSinks([ownSinks, notificationSinks, userSinks, aboutSinks]),
         DOM,
     };
 };

@@ -16,10 +16,11 @@ const container = style(vertical, width(400), {
 export const view = (
     state$: Stream<State>,
     user$: Stream<VNode>,
-    notification$: Stream<VNode>
+    notification$: Stream<VNode>,
+    about$: Stream<VNode>
 ) =>
     xs
-        .combine(state$, user$, notification$)
-        .map(([state, userDOM, notificationDOM]) =>
-            div([userDOM, notificationDOM])
+        .combine(state$, user$, notification$, about$)
+        .map(([state, userDOM, notificationDOM, about]) =>
+            div([userDOM, notificationDOM, about])
         );
