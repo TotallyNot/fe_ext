@@ -165,12 +165,24 @@ const Root = (sources: Sources): Sinks => {
         )
     );
 
+    const resetDB$: Observable<DBAction> = user$.pipe(
+        filter(user => user?.team === "None"),
+        mapTo(db =>
+            db.world
+                .find()
+                .exec()
+                .then(results =>
+                    db.world.bulkRemove(results.map(result => result.id))
+                )
+        )
+    );
+
     const notificationsSinks = isolate(Notifications, {
         state: "notification",
     })(sources);
 
     const ownSinks = {
-        DB: obsToStream(merge(update$, standardSettings$, logout$)),
+        DB: obsToStream(merge(update$, standardSettings$, logout$, resetDB$)),
         api: obsToStream(request$),
     };
 

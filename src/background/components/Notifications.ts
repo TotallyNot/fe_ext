@@ -1,10 +1,9 @@
 import { Stream, default as xs } from "xstream";
 
-import { timer, EMPTY, from, merge, Observable } from "rxjs";
+import { timer, EMPTY, of, from, merge, concat, Observable } from "rxjs";
 import {
     switchMap,
     map,
-    tap,
     filter,
     switchMapTo,
     shareReplay,
@@ -48,6 +47,7 @@ export interface State {
     refreshPeriod: number;
 
     world: boolean;
+    team: "Allies" | "Axis" | "None";
 }
 
 interface Sources {
@@ -97,6 +97,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                         state && {
                             refreshPeriod: state.refreshPeriod,
                             world: state.world,
+                            team: state.team,
                         }
                     );
                 } else {
@@ -106,6 +107,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                         apiKey: user.user.apiKey,
 
                         world: user.settings.notification.world,
+                        team: user.team,
                     };
                 }
             }
@@ -114,18 +116,24 @@ export const Notifications: Component<Sources, Sinks> = sources => {
 
     const requests$ = state$.pipe(
         distinctUntilChanged(deepCompare),
-        switchMap(({ apiKey, refreshPeriod, lastRequest, world }) =>
+        switchMap(({ apiKey, refreshPeriod, lastRequest, world, team }) =>
             apiKey
                 ? timer(delayTime(refreshPeriod, lastRequest)).pipe(
                       switchMapTo(
-                          from<APIRequest[]>([
-                              { apiKey, selection: "notifications" },
-                              { apiKey, selection: "user" },
-                              {
-                                  apiKey,
-                                  selection: world ? "world" : "country",
-                              },
-                          ])
+                          concat<APIRequest>(
+                              of({ apiKey, selection: "user" }),
+                              team !== "None"
+                                  ? from([
+                                        { apiKey, selection: "notifications" },
+                                        {
+                                            apiKey,
+                                            selection: world
+                                                ? "world"
+                                                : "country",
+                                        },
+                                    ])
+                                  : EMPTY
+                          )
                       )
                   )
                 : EMPTY
@@ -158,7 +166,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const unitSinks = unit(childSources);
     const reimburseSinks = reimbursement(childSources);
 
-    const update$ = sources.api
+    const updateNotifcation$ = sources.api
         .response("notifications")
         .filter(isSuccess)
         .map(
@@ -198,10 +206,36 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                     )
         );
 
+    const updateUser$ = sources.api
+        .response("user")
+        .filter(isSuccess)
+        .map(
+            ({ data }): DBAction => db =>
+                db.player
+                    .findOne({
+                        selector: {
+                            user: {
+                                $exists: true,
+                            },
+                        },
+                    })
+                    .exec()
+                    .then(record =>
+                        record?.atomicUpdate(old => {
+                            if (!old.user) return old;
+
+                            old.name = data.name;
+                            old.team = data.team;
+
+                            return old;
+                        })
+                    )
+        );
+
     const ownSinks = {
         api: obsToStream(requests$),
         state: obsToStream(reducer$) as Stream<Reducer<unknown>>,
-        DB: update$,
+        DB: xs.merge(updateNotifcation$, updateUser$),
         runtime: xs.empty(),
     };
 
