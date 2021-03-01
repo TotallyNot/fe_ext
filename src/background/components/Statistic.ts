@@ -98,7 +98,7 @@ export const training: Component<Sources, Sinks> = ({
                 message: lastTrained
                     ? `You finished training your ${stats[lastTrained]}.`
                     : "",
-                iconUrl: "placeholder.png",
+                iconUrl: "icon256.png",
                 type: "basic",
             })
         )

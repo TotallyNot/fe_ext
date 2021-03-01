@@ -79,7 +79,7 @@ export const war: Component<Sources, Sinks> = ({
             create("war", {
                 title: "You war timer is up!",
                 message: "",
-                iconUrl: "placeholder.png",
+                iconUrl: "icon256.png",
                 type: "basic",
             })
         )

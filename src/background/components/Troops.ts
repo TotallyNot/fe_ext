@@ -228,7 +228,7 @@ export const units: Component<Sources, Sinks> = sources => {
                                   create("current_allies", {
                                       title: `Allied units in ${country.name}`,
                                       message: `Changed by ${event.deltas.allies}!`,
-                                      iconUrl: "placeholder.png",
+                                      iconUrl: "icon256.png",
                                       type: "basic",
                                   })
                               )
@@ -255,7 +255,7 @@ export const units: Component<Sources, Sinks> = sources => {
                                   create("current_axis", {
                                       title: `Axis units in ${country.name}`,
                                       message: `Changed by ${event.deltas.axis}!`,
-                                      iconUrl: "placeholder.png",
+                                      iconUrl: "icon256.png",
                                       type: "basic",
                                   })
                               )

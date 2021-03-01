@@ -78,7 +78,7 @@ export const event: Component<Sources, Sinks> = ({
                     unread > 1 ? "s" : ""
                 }!`,
                 message: "",
-                iconUrl: "placeholder.png",
+                iconUrl: "icon256.png",
                 type: "basic",
             })
         )

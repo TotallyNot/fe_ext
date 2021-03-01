@@ -15,6 +15,11 @@
         "open_in_tab": true
     },
 
+    "icons": {
+        "48": "icon48.png",
+        "256": "icon256.png"
+    },
+
     "permissions": [
         "https://www.finalearth.com/api/*",
         "notifications"

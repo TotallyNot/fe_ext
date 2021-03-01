@@ -82,7 +82,7 @@ export const reimbursement: Component<Sources, Sinks> = ({
             create("reimburse", {
                 title: "Your reimbursement is ready!",
                 message: "",
-                iconUrl: "placeholder.png",
+                iconUrl: "icon256.png",
                 type: "basic",
             })
         )
