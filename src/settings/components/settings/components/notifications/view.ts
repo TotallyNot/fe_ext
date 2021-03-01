@@ -128,10 +128,10 @@ export const view = (output: Output): Observable<VNode> =>
                           span(
                               `~${Math.round(
                                   (60 / settings.refreshPeriod) *
-                                      (settings.world ? 80 : 2.3)
+                                      (settings.world ? 11 : 2)
                               )}kB per minute / ~${Math.round(
                                   88.4 / settings.refreshPeriod
-                              ) * (settings.world ? 80 : 2.3)}mB per day`
+                              ) * (settings.world ? 11 : 2)}mB per day`
                           ),
                       ]),
                       div({ attrs: { class: item } }, [
