@@ -55,6 +55,18 @@ const boxTitle = style(margin(0, 0, 7, 0), {
     color: primary.toString(),
 });
 
+const footNoteContainer = style(vertical, {
+    alignItems: "flex-start",
+});
+
+const footNoted = style(horizontal);
+
+const footNote = style({
+    fontSize: 11,
+    marginTop: 4,
+    marginLeft: 5,
+});
+
 const inlineInput = style(width(60), margin(0, 5));
 
 export const view = (output: Output): Observable<VNode> =>
@@ -82,14 +94,44 @@ export const view = (output: Output): Observable<VNode> =>
                               "seconds",
                           ]),
                       ]),
+                      div(
+                          {
+                              attrs: {
+                                  class: classes(item, footNoteContainer),
+                              },
+                          },
+                          [
+                              div({ attrs: { class: footNoted } }, [
+                                  input({
+                                      props: {
+                                          type: "checkbox",
+                                          id: "world",
+                                          name: "world",
+                                      },
+                                      attrs: {
+                                          checked: settings.world,
+                                      },
+                                  }),
+                                  label(
+                                      { attrs: { for: "world" } },
+                                      "Track entire map *"
+                                  ),
+                              ]),
+                              span(
+                                  { attrs: { class: footNote } },
+                                  "* this will significantly increase data usage, but will be required for some as of yet unimplementend features"
+                              ),
+                          ]
+                      ),
                       div({ attrs: { class: classes(item, box, dataBox) } }, [
                           h4({ attrs: { class: boxTitle } }, "data usage:"),
                           span(
                               `~${Math.round(
-                                  (60 / settings.refreshPeriod) * 80
+                                  (60 / settings.refreshPeriod) *
+                                      (settings.world ? 80 : 2.3)
                               )}kB per minute / ~${Math.round(
                                   88.4 / settings.refreshPeriod
-                              ) * 80}mB per day`
+                              ) * (settings.world ? 80 : 2.3)}mB per day`
                           ),
                       ]),
                       div({ attrs: { class: item } }, [

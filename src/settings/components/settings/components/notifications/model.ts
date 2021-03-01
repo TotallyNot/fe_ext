@@ -27,6 +27,7 @@ export const model = (inputs: Inputs) => {
                     if (
                         [
                             "war",
+                            "world",
                             "training",
                             "reimburse",
                             "event",
