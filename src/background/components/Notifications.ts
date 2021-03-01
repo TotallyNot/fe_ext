@@ -104,7 +104,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
                         refreshPeriod: user.settings.notification.refreshPeriod,
                         apiKey: user.user.apiKey,
 
-                        world: false,
+                        world: user.settings.notification.world,
                     };
                 }
             }

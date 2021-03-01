@@ -6,7 +6,7 @@ import { RxDBMigrationPlugin } from "rxdb/plugins/migration";
 import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
 import { RxDBUpdatePlugin } from "rxdb/plugins/update";
 
-import { PlayerCollection } from "./player/types";
+import { PlayerCollection, PlayerDocType } from "./player/types";
 import { PlayerSchema } from "./player/schema";
 import { CountryCollection } from "./country/types";
 import { CountrySchema } from "./country/schema";
@@ -42,6 +42,14 @@ export const makeDB = async () => {
     await db.addCollections({
         player: {
             schema: PlayerSchema,
+            migrationStrategies: {
+                1(oldDoc: PlayerDocType) {
+                    if (oldDoc.settings) {
+                        oldDoc.settings.notification.world = true;
+                    }
+                    return oldDoc;
+                },
+            },
         },
         country: {
             schema: CountrySchema,

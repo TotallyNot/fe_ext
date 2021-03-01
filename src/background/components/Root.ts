@@ -144,6 +144,7 @@ const Root = (sources: Sources): Sinks => {
                     settings: {
                         notification: {
                             refreshPeriod: 30,
+                            world: true,
                             war: true,
                             event: true,
                             mail: true,

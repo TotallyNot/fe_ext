@@ -5,7 +5,7 @@ import { PlayerDocType } from "./types";
 export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
     title: "Player Schema",
     description: "describes players",
-    version: 0,
+    version: 1,
     type: "object",
 
     properties: {
@@ -43,7 +43,7 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                             type: "number",
                         },
                     },
-                    required: ["war", "events", "mail"],
+                    required: ["war", "events", "mail", "reimburse"],
                 },
 
                 training: {
@@ -76,6 +76,9 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                     properties: {
                         refreshPeriod: {
                             type: "number",
+                        },
+                        world: {
+                            type: "boolean",
                         },
 
                         event: {
@@ -122,6 +125,8 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                         },
                     },
                     required: [
+                        "refreshPeriod",
+                        "world",
                         "event",
                         "mail",
                         "war",

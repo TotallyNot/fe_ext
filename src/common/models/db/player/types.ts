@@ -35,6 +35,7 @@ export type PlayerDocType = {
     settings?: {
         notification: {
             refreshPeriod: number;
+            world: boolean;
 
             event: boolean;
             mail: boolean;
