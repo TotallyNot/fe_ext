@@ -22,9 +22,9 @@ import {
     NotificationActions,
     create,
     clear,
-} from "../drivers/notificationDriver";
+} from "../../../../drivers/notificationDriver";
 
-import { ChildProps } from "./Notifications";
+import { ChildProps } from "../..";
 
 export interface State {
     active: boolean;
@@ -46,7 +46,7 @@ interface Sinks {
     notifications: Stream<NotificationActions>;
 }
 
-export const mail: Component<Sources, Sinks> = ({
+export const event: Component<Sources, Sinks> = ({
     state,
     api,
     notifications,
@@ -54,11 +54,14 @@ export const mail: Component<Sources, Sinks> = ({
 }) => {
     const unread$ = streamToObs(api.response("notifications")).pipe(
         filter(isSuccess),
-        pluck("data", "unreadMails"),
+        pluck("data", "unreadEvents"),
         distinctUntilChanged()
     );
 
-    const active$ = props.settings$.pipe(pluck("mail"), distinctUntilChanged());
+    const active$ = props.settings$.pipe(
+        pluck("event"),
+        distinctUntilChanged()
+    );
 
     const state$ = streamToObs(state.stream);
 
@@ -70,8 +73,8 @@ export const mail: Component<Sources, Sinks> = ({
         filter(isSome),
         filter(unread => unread !== 0),
         map(unread =>
-            create("mail", {
-                title: `You have ${unread} unread mail${
+            create("event", {
+                title: `You have ${unread} unread event${
                     unread > 1 ? "s" : ""
                 }!`,
                 message: "",
@@ -83,10 +86,12 @@ export const mail: Component<Sources, Sinks> = ({
 
     const clear$ = state$.pipe(
         filter(state => state.unread === 0),
-        mapTo(clear("mail"))
+        mapTo(clear("event"))
     );
 
-    const notificationReducer$ = streamToObs(notifications.select("mail")).pipe(
+    const notificationReducer$ = streamToObs(
+        notifications.select("event")
+    ).pipe(
         map(event =>
             OptReducer((prev: State) =>
                 produce(prev, draft => {
@@ -143,4 +148,4 @@ export const mail: Component<Sources, Sinks> = ({
     };
 };
 
-export default withState(mail);
+export default withState(event);

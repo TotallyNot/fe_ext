@@ -28,7 +28,7 @@ import { DBSource, DBAction } from "common/drivers/dbDriver";
 import { obsToStream, streamToObs } from "common/connect";
 import { isSome, isSuccess } from "common/types";
 
-import { Notifications, State as NotificationState } from "./Notifications";
+import { Notifications, State as NotificationState } from "./notification";
 
 export interface State {
     notification?: NotificationState;

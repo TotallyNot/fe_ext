@@ -22,18 +22,18 @@ import { deepCompare } from "common/util";
 
 import { APISource, APIRequest } from "common/drivers/apiDriver";
 import { DBSource, DBAction } from "common/drivers/dbDriver";
-import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
+import { RuntimeSource, RuntimeMessage } from "../../drivers/runtimeDriver";
 import {
     NotificationSource,
     NotificationActions,
-} from "../drivers/notificationDriver";
+} from "../../drivers/notificationDriver";
 
-import event from "./Event";
-import mail from "./Mail";
-import training from "./Statistic";
-import unit from "./Troops";
-import war from "./War";
-import reimbursement from "./reimbursement";
+import event from "./components/event";
+import mail from "./components/mail";
+import training from "./components/training";
+import units from "./components/units";
+import war from "./components/war";
+import reimbursement from "./components/reimbursement";
 
 import { PlayerDocType } from "common/models/db/player/types";
 
@@ -163,7 +163,7 @@ export const Notifications: Component<Sources, Sinks> = sources => {
     const mailSinks = mail(childSources);
     const trainingSinks = training(childSources);
     const warSinks = war(childSources);
-    const unitSinks = unit(childSources);
+    const unitSinks = units(childSources);
     const reimburseSinks = reimbursement(childSources);
 
     const updateNotifcation$ = sources.api

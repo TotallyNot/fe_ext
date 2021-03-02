@@ -23,9 +23,9 @@ import {
     NotificationActions,
     create,
     clear,
-} from "../drivers/notificationDriver";
+} from "../../../../drivers/notificationDriver";
 
-import { ChildProps } from "./Notifications";
+import { ChildProps } from "../..";
 
 export interface State {
     active: boolean;

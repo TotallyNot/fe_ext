@@ -27,12 +27,12 @@ import {
     NotificationSource,
     NotificationActions,
     create,
-} from "../drivers/notificationDriver";
+} from "../../../../drivers/notificationDriver";
 
 import { CountryEventDocType } from "common/models/db/countryEvent/types";
 import { CountryDocType } from "common/models/db/country/types";
 
-import { ChildProps } from "./Notifications";
+import { ChildProps } from "../..";
 
 interface Sources {
     api: APISource;
