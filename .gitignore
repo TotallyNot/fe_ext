@@ -3,6 +3,7 @@
 
 dist/js
 dist/*.json
+dist.zip
 node_modules
 
 .DS_Store

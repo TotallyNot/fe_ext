@@ -1,7 +1,7 @@
 {
-  "name": "FEext",
-  "version": "0.0.1",
-  "description": "",
+  "name": "FinalEarthLink",
+  "version": "1.0.1",
+  "description": "A browser extension for the Final Earth browser game.",
   "repository": {
     "type": "git",
     "url": "https://github.com/TotallyNot/fe_ext.git"
@@ -55,6 +55,5 @@
     "uuid": "^8.1.0",
     "webextension-polyfill-ts": "^0.22.0",
     "xstream": "^11.14.0"
-  },
-  "sideEffect": false
+  }
 }

@@ -41,7 +41,6 @@ const config: Configuration = {
 
                         manifest.version = packageJSON.version;
                         manifest.version_name = `v${packageJSON.version}`;
-                        manifest.name = packageJSON.name;
                         manifest.description = packageJSON.description;
                         manifest.author = packageJSON.author;
 

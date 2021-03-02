@@ -10,7 +10,7 @@ export const view = (inputs: Inputs) =>
             div([
                 h1("Open Source License Acknowledgements"),
                 p(
-                    "(name pending) utilizes third-party open source software subject to the licenses described below."
+                    "Final Eart Link bundles third-party open source software subject to the licenses described below."
                 ),
 
                 ...licenses.map(license =>

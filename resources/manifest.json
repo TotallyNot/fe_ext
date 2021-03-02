@@ -1,5 +1,6 @@
 {
     "manifest_version": 2,
+    "name": "Final Earth Link",
 
     "background": {
         "scripts": ["js/background.js"],
@@ -17,6 +18,8 @@
 
     "icons": {
         "48": "icon48.png",
+        "96": "icon96.png",
+        "128": "thumbnail.png",
         "256": "icon256.png"
     },
 
