@@ -1,6 +1,6 @@
 import { Stream } from "xstream";
 
-import { Observable, merge } from "rxjs";
+import { Observable, merge, interval } from "rxjs";
 import {
     switchMap,
     map,
@@ -10,6 +10,7 @@ import {
     switchMapTo,
     first,
     share,
+    startWith,
 } from "rxjs/operators";
 
 import { StateSource, Reducer, withState } from "@cycle/state";
@@ -29,6 +30,8 @@ import { obsToStream, streamToObs } from "common/connect";
 import { isSome, isSuccess } from "common/types";
 
 import { Notifications, State as NotificationState } from "./notification";
+
+import { CountryEventSchema } from "common/models/db/countryEvent/schema";
 
 export interface State {
     notification?: NotificationState;
@@ -59,7 +62,6 @@ const Root = (sources: Sources): Sinks => {
         });
     }
     */
-
     const user$ = sources.DB.db$.pipe(
         switchMap(
             db =>
@@ -102,39 +104,6 @@ const Root = (sources: Sources): Sinks => {
         )
     );
 
-    const request$ = sources.DB.db$.pipe(
-        switchMap(db => db.country.find().$),
-        filter(results => results.length === 0),
-        switchMapTo(
-            apiKey$.pipe(
-                first(),
-                map((apiKey): APIRequest => ({ apiKey, selection: "world" }))
-            )
-        )
-    );
-
-    const response$ = streamToObs(sources.api.response("world"));
-
-    const update$: Observable<DBAction> = response$.pipe(
-        filter(isSuccess),
-        map(({ data }) => db =>
-            db.country.bulkInsert(
-                data.map(country => ({
-                    id: country.id,
-                    code: country.code,
-                    name: country.name,
-                    region: country.region,
-
-                    land: country.land,
-                    coastline: country.coastline,
-                    coordinates: country.coordinates,
-
-                    current: false,
-                }))
-            )
-        )
-    );
-
     const standardSettings$ = user$.pipe(
         filter(isSome),
         filter(user => !user.settings),
@@ -165,25 +134,12 @@ const Root = (sources: Sources): Sinks => {
         )
     );
 
-    const resetDB$: Observable<DBAction> = user$.pipe(
-        filter(user => user?.team === "None"),
-        mapTo(db =>
-            db.world
-                .find()
-                .exec()
-                .then(results =>
-                    db.world.bulkRemove(results.map(result => result.id))
-                )
-        )
-    );
-
     const notificationsSinks = isolate(Notifications, {
         state: "notification",
     })(sources);
 
     const ownSinks = {
-        DB: obsToStream(merge(update$, standardSettings$, logout$, resetDB$)),
-        api: obsToStream(request$),
+        DB: obsToStream(merge(standardSettings$, logout$)),
     };
 
     return mergeSinks([notificationsSinks, ownSinks]);

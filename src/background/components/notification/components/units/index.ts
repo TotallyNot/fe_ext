@@ -6,17 +6,17 @@ import {
     groupBy,
     mergeMap,
     switchMap,
+    switchMapTo,
+    first,
     pairwise,
     map,
     pluck,
     share,
     distinctUntilChanged,
-    withLatestFrom,
     skip,
-    throttleTime,
     observeOn,
+    tap,
 } from "rxjs/operators";
-import { v4 } from "uuid";
 
 import { Component, isSuccess, isSome } from "common/types";
 import { obsToStream, streamToObs } from "common/connect";
@@ -28,9 +28,6 @@ import {
     NotificationActions,
     create,
 } from "../../../../drivers/notificationDriver";
-
-import { CountryEventDocType } from "common/models/db/countryEvent/types";
-import { CountryDocType } from "common/models/db/country/types";
 
 import { ChildProps } from "../..";
 
@@ -50,7 +47,6 @@ export const units: Component<Sources, Sinks> = sources => {
     const world$ = streamToObs(sources.api.response("world")).pipe(
         filter(isSuccess),
         observeOn(asyncScheduler),
-        mergeMap(({ data }) => from(data)),
         share()
     );
 
@@ -60,70 +56,37 @@ export const units: Component<Sources, Sinks> = sources => {
         share()
     );
 
-    const countries$ = merge(world$, country$);
-
     const settings$ = sources.props.settings$;
-
-    const insertEvents$ = countries$.pipe(
-        groupBy(country => country.id),
-        observeOn(asyncScheduler),
-        mergeMap(country$ =>
-            country$.pipe(
-                pairwise(),
-                map(([prev, curr]) => {
-                    const mapValue = (
-                        selector: (value: typeof prev) => number
-                    ) =>
-                        selector(prev) === selector(curr)
-                            ? undefined
-                            : selector(curr) - selector(prev);
-                    const deltas = {
-                        allies: mapValue(country => country.units.allies),
-                        axis: mapValue(country => country.units.axis),
-
-                        groundDefences: mapValue(
-                            country => country.facilities.groundDefences
-                        ),
-                        airDefences: mapValue(
-                            country => country.facilities.airDefences
-                        ),
-                        factories: mapValue(
-                            country => country.facilities.factories
-                        ),
-                        mines: mapValue(country => country.facilities.mines),
-                        rigs: mapValue(country => country.facilities.rigs),
-                    };
-
-                    for (const key in deltas) {
-                        if (deltas[key as keyof typeof deltas] === undefined) {
-                            delete deltas[key as keyof typeof deltas];
-                        }
-                    }
-
-                    const country: CountryEventDocType = {
-                        id: v4(),
-                        countryID: curr.id,
-                        timestamp: Date.now(),
-                        deltas,
-                    };
-
-                    return country;
-                })
-            )
-        ),
-        filter(
-            event =>
-                Object.values(event.deltas).filter(value => value !== undefined)
-                    .length !== 0
-        ),
-        map((deltas): DBAction => db => db.world.insert(deltas))
-    );
 
     const currentCountry$ = streamToObs(sources.api.response("user")).pipe(
         filter(isSuccess),
         pluck("data", "country"),
         filter(isSome),
         distinctUntilChanged()
+    );
+
+    const initCollection$ = sources.DB.db$.pipe(
+        switchMap(db => db.country.findOne().$),
+        filter(country => country === null),
+        switchMapTo(world$.pipe(first())),
+        map(
+            ({ data }): DBAction => db =>
+                db.country.bulkInsert(
+                    data.map(country => ({
+                        id: country.id,
+                        name: country.name,
+                        region: country.region,
+                        code: country.code,
+                        land: country.land,
+                        coastline: country.coastline,
+
+                        coordinates: country.coordinates,
+                        current: false,
+                        units: country.units,
+                        deltas: [],
+                    }))
+                )
+        )
     );
 
     const updateCurrent$ = currentCountry$.pipe(
@@ -158,117 +121,123 @@ export const units: Component<Sources, Sinks> = sources => {
                         })
                         .exec()
                         .then(result =>
-                            result?.atomicPatch({
-                                current: true,
-                            })
+                            result?.current === true
+                                ? undefined
+                                : result?.atomicPatch({
+                                      current: true,
+                                  })
                         ),
             ])
         )
     );
 
-    const updateUnits$ = countries$.pipe(
-        withLatestFrom(currentCountry$),
-        filter(([country, countryID]) => country.id === countryID),
-        distinctUntilChanged(
-            (prev, curr) =>
-                prev[0].units.allies === curr[0].units.allies &&
-                prev[0].units.axis === curr[0].units.axis
-        ),
-        map(
-            ([country, _]): DBAction => db =>
-                db.country
-                    .findOne({
-                        selector: {
-                            id: country.id,
-                        },
-                    })
-                    .exec()
-                    .then(record =>
-                        record?.atomicPatch({
-                            units: country.units,
-                        })
-                    )
-        )
-    );
-
-    const db$ = merge(insertEvents$, updateCurrent$, updateUnits$);
-
-    const countryEvent$ = currentCountry$.pipe(
-        switchMap(countryID =>
-            sources.DB.db$.pipe(
-                switchMap(
-                    db =>
-                        db.world.findOne({
-                            selector: {
-                                countryID,
-                            },
-                            sort: [
-                                {
-                                    timestamp: "desc",
-                                },
-                            ],
-                        }).$
-                ),
-                skip(1),
-                filter(isSome)
+    const diff$ = merge(
+        world$.pipe(mergeMap(({ data }) => from(data))),
+        country$
+    ).pipe(
+        groupBy(country => country.id),
+        mergeMap(country$ =>
+            country$.pipe(
+                pairwise(),
+                filter(
+                    ([prev, curr]) =>
+                        prev.units.allies !== curr.units.allies ||
+                        prev.units.axis !== curr.units.axis
+                )
             )
         ),
         share()
     );
 
+    const addDelta$ = diff$.pipe(
+        map(
+            ([prev, curr]): DBAction => db =>
+                db.country
+                    .findOne(curr.id)
+                    .exec()
+                    .then(country =>
+                        country?.atomicUpdate(old => {
+                            const cuttoff = Date.now() - 3 * 864000 * 1000;
+                            old.deltas = old.deltas.filter(
+                                delta => delta.timestamp >= cuttoff
+                            );
+                            const delta: typeof old.deltas[number] = {
+                                timestamp: Date.now(),
+                                allies: curr.units.allies - prev.units.allies,
+                                axis: curr.units.axis - prev.units.axis,
+                            };
+                            if (delta.allies === 0) {
+                                delete delta.allies;
+                            }
+                            if (delta.axis === 0) {
+                                delete delta.axis;
+                            }
+                            old.deltas.push(delta);
+
+                            old.units = curr.units;
+
+                            return old;
+                        })
+                    )
+        )
+    );
+
+    const event$ = sources.DB.db$.pipe(
+        switchMap(db => db.country.findOne({ selector: { current: true } }).$),
+        tap(doc => console.log("before", doc?.toJSON())),
+        filter(isSome),
+        map(doc => doc.toJSON()),
+        groupBy(country => country.id),
+        switchMap(country$ => country$.pipe(skip(1))),
+        tap(console.log),
+        share()
+    );
+
+    const alliesNotif$ = event$.pipe(
+        map(country => [
+            country.name,
+            country.deltas[country.deltas.length - 1]?.allies,
+        ]),
+        filter(([_, delta]) => delta !== undefined),
+        map(([name, delta]) =>
+            create("current_allies", {
+                title: `Allied units in ${name}`,
+                message: `Changed by ${delta}!`,
+                iconUrl: "icon256.png",
+                type: "basic",
+            })
+        )
+    );
+
     const alliesCreate$ = settings$.pipe(
         switchMap(({ userLocation, userLocationActive }) =>
-            !userLocationActive || !userLocation.allies
-                ? EMPTY
-                : countryEvent$.pipe(
-                      filter(({ deltas }) => deltas.allies !== undefined),
-                      switchMap(event =>
-                          from(event.populate("countryID")).pipe(
-                              map((country: CountryDocType) =>
-                                  create("current_allies", {
-                                      title: `Allied units in ${country.name}`,
-                                      message: `Changed by ${event.deltas.allies}!`,
-                                      iconUrl: "icon256.png",
-                                      type: "basic",
-                                  })
-                              )
-                          )
-                      ),
-                      throttleTime(
-                          userLocation.cooldownActive
-                              ? userLocation.cooldown * 1000
-                              : 0
-                      )
-                  )
+            !userLocationActive || !userLocation.allies ? EMPTY : alliesNotif$
+        )
+    );
+
+    const axisNotif$ = event$.pipe(
+        map(country => [
+            country.name,
+            country.deltas[country.deltas.length - 1]?.axis,
+        ]),
+        filter(([_, delta]) => delta !== undefined),
+        map(([name, delta]) =>
+            create("current_axis", {
+                title: `Axis units in ${name}`,
+                message: `Changed by ${delta}!`,
+                iconUrl: "icon256.png",
+                type: "basic",
+            })
         )
     );
 
     const axisCreate$ = settings$.pipe(
         switchMap(({ userLocation, userLocationActive }) =>
-            !userLocationActive || !userLocation.axis
-                ? EMPTY
-                : countryEvent$.pipe(
-                      filter(({ deltas }) => deltas.axis !== undefined),
-                      switchMap(event =>
-                          from(event.populate("countryID")).pipe(
-                              map((country: CountryDocType) =>
-                                  create("current_axis", {
-                                      title: `Axis units in ${country.name}`,
-                                      message: `Changed by ${event.deltas.axis}!`,
-                                      iconUrl: "icon256.png",
-                                      type: "basic",
-                                  })
-                              )
-                          )
-                      ),
-                      throttleTime(
-                          userLocation.cooldownActive
-                              ? userLocation.cooldown * 1000
-                              : 0
-                      )
-                  )
+            !userLocationActive || !userLocation.allies ? EMPTY : axisNotif$
         )
     );
+
+    const db$ = merge(initCollection$, addDelta$, updateCurrent$);
 
     const notification$ = merge(alliesCreate$, axisCreate$);
 

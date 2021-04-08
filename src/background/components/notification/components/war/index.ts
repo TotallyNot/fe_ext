@@ -77,7 +77,7 @@ export const war: Component<Sources, Sinks> = ({
         ),
         mapTo(
             create("war", {
-                title: "You war timer is up!",
+                title: "Your war timer is up!",
                 message: "",
                 iconUrl: "icon256.png",
                 type: "basic",

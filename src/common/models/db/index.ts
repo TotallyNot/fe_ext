@@ -8,7 +8,7 @@ import { RxDBUpdatePlugin } from "rxdb/plugins/update";
 
 import { PlayerCollection, PlayerDocType } from "./player/types";
 import { PlayerSchema } from "./player/schema";
-import { CountryCollection } from "./country/types";
+import { CountryCollection, CountryDocType } from "./country/types";
 import { CountrySchema } from "./country/schema";
 import { CountryEventCollection } from "./countryEvent/types";
 import { CountryEventSchema } from "./countryEvent/schema";
@@ -36,6 +36,7 @@ export const makeDB = async () => {
         adapter: "idb",
         pouchSettings: {
             auto_compaction: true,
+            revs_limit: 1,
         },
     });
 
@@ -53,11 +54,19 @@ export const makeDB = async () => {
         },
         country: {
             schema: CountrySchema,
+            migrationStrategies: {
+                1(oldDoc: CountryDocType): CountryDocType {
+                    oldDoc.deltas = [];
+                    return oldDoc;
+                },
+            },
         },
         world: {
             schema: CountryEventSchema,
         },
     });
+
+    await db.world.remove();
 
     return db;
 };

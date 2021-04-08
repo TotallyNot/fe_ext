@@ -30,6 +30,12 @@ export type CountryDocType = {
         allies: number;
         axis: number;
     };
+
+    deltas: {
+        timestamp: number;
+        allies?: number;
+        axis?: number;
+    }[];
 };
 
 export type CountryDocument = RxDocument<CountryDocType>;

@@ -5,7 +5,7 @@ import { CountryDocType } from "./types";
 export const CountrySchema: RxJsonSchema<CountryDocType> = {
     title: "Country schema",
     description: "Stores meta information for each country",
-    version: 0,
+    version: 1,
     type: "object",
 
     properties: {
@@ -59,6 +59,25 @@ export const CountrySchema: RxJsonSchema<CountryDocType> = {
             },
             required: ["allies", "axis"],
         },
+        deltas: {
+            type: "array",
+            items: {
+                type: "object",
+
+                properties: {
+                    timestamp: {
+                        type: "number",
+                    },
+                    allies: {
+                        type: "number",
+                    },
+                    axis: {
+                        type: "number",
+                    },
+                },
+                required: ["timestamp"],
+            },
+        },
     },
 
     required: [
@@ -69,5 +88,6 @@ export const CountrySchema: RxJsonSchema<CountryDocType> = {
         "coastline",
         "coordinates",
         "current",
+        "deltas",
     ],
 };
