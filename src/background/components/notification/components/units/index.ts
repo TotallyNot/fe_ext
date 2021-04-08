@@ -15,7 +15,7 @@ import {
     distinctUntilChanged,
     skip,
     observeOn,
-    tap,
+    throttleTime,
 } from "rxjs/operators";
 
 import { Component, isSuccess, isSome } from "common/types";
@@ -184,12 +184,10 @@ export const units: Component<Sources, Sinks> = sources => {
 
     const event$ = sources.DB.db$.pipe(
         switchMap(db => db.country.findOne({ selector: { current: true } }).$),
-        tap(doc => console.log("before", doc?.toJSON())),
         filter(isSome),
         map(doc => doc.toJSON()),
         groupBy(country => country.id),
         switchMap(country$ => country$.pipe(skip(1))),
-        tap(console.log),
         share()
     );
 
@@ -211,7 +209,15 @@ export const units: Component<Sources, Sinks> = sources => {
 
     const alliesCreate$ = settings$.pipe(
         switchMap(({ userLocation, userLocationActive }) =>
-            !userLocationActive || !userLocation.allies ? EMPTY : alliesNotif$
+            !userLocationActive || !userLocation.allies
+                ? EMPTY
+                : alliesNotif$.pipe(
+                      throttleTime(
+                          userLocation.cooldownActive
+                              ? userLocation.cooldown * 1000
+                              : 0
+                      )
+                  )
         )
     );
 
@@ -233,7 +239,15 @@ export const units: Component<Sources, Sinks> = sources => {
 
     const axisCreate$ = settings$.pipe(
         switchMap(({ userLocation, userLocationActive }) =>
-            !userLocationActive || !userLocation.allies ? EMPTY : axisNotif$
+            !userLocationActive || !userLocation.allies
+                ? EMPTY
+                : axisNotif$.pipe(
+                      throttleTime(
+                          userLocation.cooldownActive
+                              ? userLocation.cooldown * 1000
+                              : 0
+                      )
+                  )
         )
     );
 
