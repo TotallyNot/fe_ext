@@ -2,10 +2,7 @@
   "name": "FinalEarthLink",
   "version": "1.1.1",
   "description": "A browser extension for the Final Earth browser game.",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/TotallyNot/fe_ext.git"
-  },
+  "repository": "https://github.com/TotallyNot/fe_ext.git",
   "scripts": {
     "build": "webpack --config webpack.prod.ts",
     "dev": "webpack --config webpack.dev.ts",
@@ -14,15 +11,14 @@
   "author": "Pyrit [2111649]",
   "license": "BSD-3-Clause",
   "devDependencies": {
-    "@types/copy-webpack-plugin": "^6.4.0",
-    "@types/terser-webpack-plugin": "^5.0.2",
+    "@types/copy-webpack-plugin": "^6.4.1",
+    "@types/terser-webpack-plugin": "^5.0.3",
     "@types/uuid": "^8.3.0",
-    "@types/webpack-env": "^1.16.0",
-    "@types/webpack-merge": "^4.1.5",
     "@typescript-eslint/eslint-plugin": "^4.11.0",
     "@typescript-eslint/parser": "^4.11.0",
-    "copy-webpack-plugin": "^7.0.0",
+    "copy-webpack-plugin": "^8.1.1",
     "eslint": "^7.16.0",
+    "license-webpack-plugin": "^2.3.16",
     "prettier": "^1.19.1",
     "ts-loader": "^8.0.17",
     "ts-node": "^9.1.1",
@@ -31,7 +27,6 @@
     "webpack": "^5.23.0",
     "webpack-cli": "^4.5.0",
     "webpack-env": "^0.8.0",
-    "webpack-license-plugin": "^4.1.2",
     "webpack-merge": "^5.7.3"
   },
   "dependencies": {
@@ -42,18 +37,25 @@
     "@cycle/run": "^5.5.0",
     "@cycle/rxjs-run": "^10.5.0",
     "@cycle/state": "^1.4.0",
+    "@fortawesome/fontawesome-free": "^5.15.3",
     "csstips": "^1.2.0",
     "csx": "^10.0.2",
     "cyclejs-utils": "^4.0.2",
     "funtypes": "^3.0.1",
     "immer": "^8.0.1",
     "pouchdb-adapter-idb": "^7.2.2",
-    "rxdb": "^9.14.0",
+    "rxdb": "^9.15.0",
     "rxjs": "^6.6.3",
     "switch-path": "^1.2.0",
+    "symbol-observable": "^1.2.0",
     "typestyle": "^2.1.0",
     "uuid": "^8.1.0",
     "webextension-polyfill-ts": "^0.22.0",
+    "webpack-copy-plugin": "^0.0.4",
     "xstream": "^11.14.0"
+  },
+  "resolutions": {
+    "object-path": "^0.11.5",
+    "node-fetch": "^2.6.1"
   }
 }

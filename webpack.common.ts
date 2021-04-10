@@ -1,7 +1,7 @@
 import { join } from "path";
-import { Configuration } from "webpack";
+import { Configuration, WebpackPluginInstance } from "webpack";
 import CopyPlugin from "copy-webpack-plugin";
-import LicensePlugin from "webpack-license-plugin";
+import { LicenseWebpackPlugin } from "license-webpack-plugin";
 
 const config: Configuration = {
     entry: {
@@ -49,9 +49,26 @@ const config: Configuration = {
                 },
             ],
         }),
-        new LicensePlugin({
-            outputFilename: join("..", "licenses.json"),
-        }),
+        // typings are broken :/
+        // therefore, nuclear option
+        (new LicenseWebpackPlugin({
+            perChunkOutput: false,
+            stats: {
+                warnings: false,
+                errors: true,
+            },
+            outputFilename: "../licenses.json",
+            renderLicenses: modules =>
+                JSON.stringify(
+                    modules.map(module => ({
+                        name: module.name,
+                        version: module.packageJson.version,
+                        author: (module.packageJson as any).author,
+                        license: module.licenseId,
+                        licenseText: module.licenseText,
+                    }))
+                ),
+        }) as unknown) as WebpackPluginInstance,
     ],
 };
 
