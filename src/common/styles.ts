@@ -93,8 +93,9 @@ export const section = style(margin(5, 0, 10, 0));
 export const subSection = style(margin(3, 0, 7, 0));
 
 export const box = classes(
-    style(padding(10, 15), vertical, flex, {
+    style(vertical, flex, padding(10, 15), {
         backgroundColor: background.lighten(0.05).toString(),
+        alignItems: "flex-start",
     })
 );
 

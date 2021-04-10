@@ -50,6 +50,8 @@ export const view = (state$: StateStream): Observable<VNode> =>
                 input({
                     attrs: {
                         class: classes(textField, countriesInput, "search"),
+                    },
+                    props: {
                         value: text,
                     },
                 }),

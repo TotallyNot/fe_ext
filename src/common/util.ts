@@ -12,3 +12,9 @@ export function deepCompare<T>(prev: T, curr: T): boolean {
         return prev === curr;
     }
 }
+
+export type Falsy = undefined | null | false;
+
+export function compactify<T>(arr: (T | Falsy)[]): T[] {
+    return arr.filter(element => element) as T[];
+}

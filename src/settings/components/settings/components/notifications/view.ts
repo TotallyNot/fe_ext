@@ -1,28 +1,13 @@
-import { Observable } from "rxjs";
+import { Observable, combineLatest } from "rxjs";
 import { map } from "rxjs/operators";
 
 import { VNode, div, input, label, h3, h4, span } from "@cycle/dom";
 import { style, classes } from "typestyle";
-import { vertical, flex, width, padding, margin, horizontal } from "csstips";
+import { vertical, width, padding, margin, horizontal } from "csstips";
 
-import { textField, background, primary, container } from "common/styles";
+import { textField, primary, container, item, box } from "common/styles";
 
 import { Output } from "./model";
-
-const item = style(horizontal, {
-    alignItems: "center",
-    $nest: {
-        "input[type=checkbox]": {
-            marginRight: 5,
-        },
-        "input[type=number]": {
-            marginLeft: 5,
-        },
-        "&:not(:last-child)": {
-            marginBottom: 10,
-        },
-    },
-});
 
 const checkboxRow = classes(
     item,
@@ -38,17 +23,6 @@ const checkboxRow = classes(
 const section = style(margin(5, 0, 10, 0));
 
 const subSection = style(margin(3, 0, 7, 0));
-
-const box = classes(
-    style(vertical, flex, {
-        backgroundColor: background.lighten(0.05).toString(),
-        alignItems: "flex-start",
-    })
-);
-
-const dataBox = style(padding(5, 0, 10, 15));
-
-const countryNotif = style(padding(10, 15));
 
 const boxTitle = style(margin(0, 0, 7, 0), {
     fontSize: 14,
@@ -69,9 +43,12 @@ const footNote = style({
 
 const inlineInput = style(width(60), margin(0, 5));
 
-export const view = (output: Output): Observable<VNode> =>
-    output.settings$.pipe(
-        map(settings =>
+export const view = (
+    output: Output,
+    countries$: Observable<VNode>
+): Observable<VNode> =>
+    combineLatest([output.settings$, countries$]).pipe(
+        map(([settings, countries]) =>
             !settings
                 ? div()
                 : div({ attrs: { class: container } }, [
@@ -123,7 +100,7 @@ export const view = (output: Output): Observable<VNode> =>
                               ),
                           ]
                       ),
-                      div({ attrs: { class: classes(item, box, dataBox) } }, [
+                      div({ attrs: { class: classes(item, box) } }, [
                           h4({ attrs: { class: boxTitle } }, "data usage:"),
                           span(
                               `~${Math.round(
@@ -230,86 +207,95 @@ export const view = (output: Output): Observable<VNode> =>
                           ),
                       ]),
 
-                      div({ attrs: { class: classes(box, countryNotif) } }, [
-                          div({ attrs: { class: checkboxRow } }, [
-                              input({
-                                  props: {
-                                      type: "checkbox",
-                                      id: "userLocationAllies",
-                                      name: "userLocationAllies",
-                                  },
-                                  attrs: {
-                                      checked: settings.userLocation.allies,
-                                      disabled: !settings.userLocationActive,
-                                  },
-                              }),
-                              label(
-                                  { attrs: { for: "userLocationAllies" } },
-                                  "Allies"
-                              ),
-                              input({
-                                  props: {
-                                      type: "checkbox",
-                                      id: "userLocationAxis",
-                                      name: "userLocationAxis",
-                                  },
-                                  attrs: {
-                                      checked: settings.userLocation.axis,
-                                      disabled: !settings.userLocationActive,
-                                  },
-                              }),
-                              label(
-                                  { attrs: { for: "userLocationAxis" } },
-                                  "Axis"
-                              ),
-                          ]),
-                          div({ attrs: { class: item } }, [
-                              input({
-                                  props: {
-                                      type: "checkbox",
-                                      id: "userLocationCooldownActive",
-                                      name: "userLocationCooldownActive",
-                                  },
-                                  attrs: {
-                                      checked:
-                                          settings.userLocation.cooldownActive,
-                                      disabled: !settings.userLocationActive,
-                                  },
-                              }),
-                              label(
-                                  {
-                                      attrs: {
-                                          for: "userLocationCooldownActive",
+                      div(
+                          {
+                              attrs: {
+                                  class: classes(item, box),
+                              },
+                          },
+                          [
+                              div({ attrs: { class: checkboxRow } }, [
+                                  input({
+                                      props: {
+                                          type: "checkbox",
+                                          id: "userLocationAllies",
+                                          name: "userLocationAllies",
                                       },
-                                  },
-                                  [
-                                      "Cooldown between alerts:",
-                                      input({
-                                          props: {
-                                              type: "number",
-                                              id: "userLocationCooldown",
-                                              name: "userLocationCooldown",
-                                              min: "0",
-                                              className: classes(
-                                                  textField,
-                                                  inlineInput
-                                              ),
-                                          },
+                                      attrs: {
+                                          checked: settings.userLocation.allies,
+                                          disabled: !settings.userLocationActive,
+                                      },
+                                  }),
+                                  label(
+                                      { attrs: { for: "userLocationAllies" } },
+                                      "Allies"
+                                  ),
+                                  input({
+                                      props: {
+                                          type: "checkbox",
+                                          id: "userLocationAxis",
+                                          name: "userLocationAxis",
+                                      },
+                                      attrs: {
+                                          checked: settings.userLocation.axis,
+                                          disabled: !settings.userLocationActive,
+                                      },
+                                  }),
+                                  label(
+                                      { attrs: { for: "userLocationAxis" } },
+                                      "Axis"
+                                  ),
+                              ]),
+                              div({ attrs: { class: item } }, [
+                                  input({
+                                      props: {
+                                          type: "checkbox",
+                                          id: "userLocationCooldownActive",
+                                          name: "userLocationCooldownActive",
+                                      },
+                                      attrs: {
+                                          checked:
+                                              settings.userLocation
+                                                  .cooldownActive,
+                                          disabled: !settings.userLocationActive,
+                                      },
+                                  }),
+                                  label(
+                                      {
                                           attrs: {
-                                              value:
-                                                  settings.userLocation
-                                                      .cooldown,
-                                              disabled:
-                                                  !settings.userLocationActive ||
-                                                  !settings.userLocation
-                                                      .cooldownActive,
+                                              for: "userLocationCooldownActive",
                                           },
-                                      }),
-                                      "seconds",
-                                  ]
-                              ),
-                          ]),
-                      ]),
+                                      },
+                                      [
+                                          "Cooldown between alerts:",
+                                          input({
+                                              props: {
+                                                  type: "number",
+                                                  id: "userLocationCooldown",
+                                                  name: "userLocationCooldown",
+                                                  min: "0",
+                                                  className: classes(
+                                                      textField,
+                                                      inlineInput
+                                                  ),
+                                              },
+                                              attrs: {
+                                                  value:
+                                                      settings.userLocation
+                                                          .cooldown,
+                                                  disabled:
+                                                      !settings.userLocationActive ||
+                                                      !settings.userLocation
+                                                          .cooldownActive,
+                                              },
+                                          }),
+                                          "seconds",
+                                      ]
+                                  ),
+                              ]),
+                          ]
+                      ),
+                      countries,
                   ])
         )
     );

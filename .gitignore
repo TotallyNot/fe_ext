@@ -6,4 +6,8 @@ dist/*.json
 dist.zip
 node_modules
 
+.yarn
+.yarnrc
+yarn-error.log
+
 .DS_Store
