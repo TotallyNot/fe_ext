@@ -50,6 +50,12 @@ export const makeDB = async () => {
                     }
                     return oldDoc;
                 },
+                2(oldDoc: PlayerDocType) {
+                    if (oldDoc.settings) {
+                        oldDoc.settings.notification.countries = [];
+                    }
+                    return oldDoc;
+                },
             },
         },
         country: {

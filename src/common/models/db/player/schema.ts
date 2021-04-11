@@ -5,7 +5,7 @@ import { PlayerDocType } from "./types";
 export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
     title: "Player Schema",
     description: "describes players",
-    version: 1,
+    version: 2,
     type: "object",
 
     properties: {
@@ -122,6 +122,48 @@ export const PlayerSchema: RxJsonSchema<PlayerDocType> = {
                                 "cooldown",
                                 "cooldowActive",
                             ],
+                        },
+
+                        countries: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    id: {
+                                        type: "string",
+                                    },
+                                    name: {
+                                        type: "string",
+                                    },
+                                    allies: {
+                                        type: "boolean",
+                                    },
+                                    axis: {
+                                        type: "boolean",
+                                    },
+
+                                    cooldown: {
+                                        type: "object",
+
+                                        properties: {
+                                            active: {
+                                                type: "boolean",
+                                            },
+                                            seconds: {
+                                                type: "number",
+                                            },
+                                        },
+                                        required: ["active", "seconds"],
+                                    },
+                                },
+                                required: [
+                                    "id",
+                                    "name",
+                                    "allies",
+                                    "axis",
+                                    "cooldown",
+                                ],
+                            },
                         },
                     },
                     required: [

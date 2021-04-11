@@ -1,4 +1,4 @@
-import { div, input, span, label, VNode } from "@cycle/dom";
+import { div, input, span, label, i, VNode } from "@cycle/dom";
 import { Observable, combineLatest } from "rxjs";
 import { map } from "rxjs/operators";
 
@@ -8,19 +8,39 @@ import { horizontal, flex1, margin, width } from "csstips";
 import {
     textField,
     primary,
+    text,
     box,
     item,
     checkboxRow,
     inlineInput,
 } from "common/styles";
 
+import times from "@fortawesome/fontawesome-free/svgs/solid/times.svg";
+
 import { StateStream } from "./model";
 
 const row = style(
     horizontal,
-    width("calc(100% + 20px)"),
-    margin(-5, -10, 15, -10)
+    width("calc(100% + 25px)"),
+    margin(-5, -15, 15, -10)
 );
+
+const close = style(
+    {
+        background: `url(${times}) no-repeat top left`,
+        filter: "invert(100%)",
+    },
+    width(20)
+);
+
+const iconButton = style({
+    $nest: {
+        "&:hover": {
+            filter: "invert(60%)",
+            cursor: "pointer",
+        },
+    },
+});
 
 const header = style(flex1, {
     flexGrow: 1,
@@ -45,7 +65,12 @@ export const view = (
                                 { attrs: { class: header } },
                                 `${country.name}:`
                             ),
-                            span("x"),
+                            i({
+                                attrs: {
+                                    class: classes(close, iconButton, "close"),
+                                },
+                                dataset: { id: country.id },
+                            }),
                         ]),
                         div({ attrs: { class: checkboxRow } }, [
                             label([
@@ -96,6 +121,8 @@ export const view = (
                                             "cooldown"
                                         ),
                                         value: country.cooldown.seconds,
+                                        type: "number",
+                                        min: 0,
                                         disabled: !country.cooldown.active,
                                     },
                                     dataset: {

@@ -12,7 +12,7 @@ import { select } from "./components/select";
 export const countries = (sources: Sources) => {
     const inputs = intent(sources);
     const selectionProxy$ = new Subject<{ key: string; name: string }>();
-    const { state$, selectProps$ } = model(inputs, selectionProxy$);
+    const { state$, selectProps$, DB } = model(inputs, selectionProxy$);
 
     const selectSources = { ...sources, props$: selectProps$ };
     const selectSinks = isolate(select, { DOM: "select" })(selectSources);
@@ -20,7 +20,5 @@ export const countries = (sources: Sources) => {
 
     const DOM = obsToStream(view(state$, streamToObs(selectSinks.DOM)));
 
-    selectSinks.selection$.subscribe(console.log);
-
-    return { DOM };
+    return { DOM, DB: obsToStream(DB) };
 };

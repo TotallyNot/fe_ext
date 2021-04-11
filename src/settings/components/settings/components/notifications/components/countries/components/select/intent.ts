@@ -11,6 +11,7 @@ import {
 import { MainDOMSource } from "@cycle/dom";
 
 import { streamToObs } from "common/connect";
+import { isSome } from "common/types";
 
 export interface Props {
     options: {

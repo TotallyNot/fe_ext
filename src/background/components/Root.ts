@@ -1,17 +1,7 @@
 import { Stream } from "xstream";
 
-import { Observable, merge, interval } from "rxjs";
-import {
-    switchMap,
-    map,
-    mapTo,
-    filter,
-    pluck,
-    switchMapTo,
-    first,
-    share,
-    startWith,
-} from "rxjs/operators";
+import { merge } from "rxjs";
+import { switchMap, map, mapTo, filter, share } from "rxjs/operators";
 
 import { StateSource, Reducer, withState } from "@cycle/state";
 import { mergeSinks } from "cyclejs-utils";
@@ -27,11 +17,9 @@ import { RuntimeSource, RuntimeMessage } from "../drivers/runtimeDriver";
 import { DBSource, DBAction } from "common/drivers/dbDriver";
 
 import { obsToStream, streamToObs } from "common/connect";
-import { isSome, isSuccess } from "common/types";
+import { isSome } from "common/types";
 
 import { Notifications, State as NotificationState } from "./notification";
-
-import { CountryEventSchema } from "common/models/db/countryEvent/schema";
 
 export interface State {
     notification?: NotificationState;
@@ -74,13 +62,6 @@ const Root = (sources: Sources): Sinks => {
                 }).$
         ),
         share()
-    );
-
-    const apiKey$ = user$.pipe(
-        filter(isSome),
-        pluck("user"),
-        filter(isSome),
-        pluck("apiKey")
     );
 
     const logout$ = streamToObs(sources.api.errors()).pipe(
@@ -128,6 +109,8 @@ const Root = (sources: Sources): Sinks => {
                                 cooldown: 60,
                                 cooldownActive: false,
                             },
+
+                            countries: [],
                         },
                     },
                 })

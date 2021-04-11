@@ -46,6 +46,19 @@ export type PlayerDocType = {
 
             userLocationActive: boolean;
             userLocation: UnitNotificationSetting;
+
+            countries: {
+                id: string;
+                name: string;
+
+                allies: boolean;
+                axis: boolean;
+
+                cooldown: {
+                    active: boolean;
+                    seconds: number;
+                };
+            }[];
         };
     };
 };

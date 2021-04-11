@@ -13,6 +13,7 @@ import { MainDOMSource } from "@cycle/dom";
 import { DBSource } from "common/drivers/dbDriver";
 
 import { streamToObs } from "common/connect";
+import { isSome } from "common/types";
 
 export interface Sources {
     DOM: MainDOMSource;
@@ -20,7 +21,7 @@ export interface Sources {
 }
 
 export const intent = (sources: Sources) => {
-    const countries$ = sources.DB.db$.pipe(
+    const countryList$ = sources.DB.db$.pipe(
         switchMap(db => db.country.find().exec()),
         filter(countries => countries.length > 0),
         map(countries =>
@@ -30,8 +31,49 @@ export const intent = (sources: Sources) => {
         startWith([] as { id: string; name: string; code: string }[])
     );
 
+    const user$ = sources.DB.db$.pipe(
+        switchMap(
+            db =>
+                db.player.findOne({
+                    selector: {
+                        user: {
+                            $exists: true,
+                        },
+                    },
+                }).$
+        ),
+        filter(isSome)
+    );
+
+    const remove$ = streamToObs(
+        sources.DOM.select(".close").events("click")
+    ).pipe(map((event: any) => event.target.dataset.id as string));
+
+    const toggled$ = streamToObs(
+        sources.DOM.select(`input[type="checkbox"]`).events("change")
+    ).pipe(
+        map((event: any) => ({
+            value: event.target.checked as boolean,
+            id: event.target.dataset.id as string,
+            type: event.target.dataset.type as string,
+        }))
+    );
+
+    const cooldown$ = streamToObs(
+        sources.DOM.select(".cooldown").events("change")
+    ).pipe(
+        map((event: any) => ({
+            value: event.target.value as string,
+            id: event.target.dataset.id as string,
+        }))
+    );
+
     return {
-        countries$,
+        countryList$,
+        user$,
+        remove$,
+        toggled$,
+        cooldown$,
     };
 };
 

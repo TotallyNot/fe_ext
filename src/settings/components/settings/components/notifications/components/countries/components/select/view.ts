@@ -54,6 +54,11 @@ export const view = (state$: StateStream): Observable<VNode> =>
                     props: {
                         value: text,
                     },
+                    hook: {
+                        prepatch(vnode: VNode) {
+                            focus || (vnode.elm as any)?.blur();
+                        },
+                    },
                 }),
                 div(
                     {

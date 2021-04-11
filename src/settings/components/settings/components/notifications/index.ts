@@ -1,4 +1,5 @@
 import isolate from "@cycle/isolate";
+import { mergeSinks } from "cyclejs-utils";
 
 import { obsToStream, streamToObs } from "common/connect";
 
@@ -12,16 +13,16 @@ const settings = (sources: Sources) => {
     const actions = intent(sources);
     const output = model(actions);
 
-    const { DOM: countries$ } = isolate(countries, { DOM: "countries" })(
-        sources
-    );
+    const countriesSinks = isolate(countries, { DOM: "countries" })(sources);
 
-    const DOM = obsToStream(view(output, streamToObs(countries$)));
+    const DOM = obsToStream(view(output, streamToObs(countriesSinks.DOM)));
 
-    return {
+    const ownSinks = {
         DOM,
         DB: output.DB,
     };
+
+    return mergeSinks([ownSinks, countriesSinks], { DOM: () => DOM });
 };
 
 export default settings;

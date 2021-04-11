@@ -2,6 +2,7 @@
 *.swp
 
 dist/js
+dist/static
 dist/*.json
 dist.zip
 node_modules

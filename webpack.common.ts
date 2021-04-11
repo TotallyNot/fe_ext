@@ -11,8 +11,8 @@ const config: Configuration = {
         acknowledgements: join(__dirname, "src/acknowledgements/index.ts"),
     },
     output: {
-        path: join(__dirname, "dist/js"),
-        filename: "[name].js",
+        path: join(__dirname, "dist"),
+        filename: "js/[name].js",
     },
     module: {
         rules: [
@@ -20,6 +20,19 @@ const config: Configuration = {
                 exclude: /node_modules/,
                 test: /\.tsx?$/,
                 use: "ts-loader",
+            },
+            {
+                test: /\.svg$/,
+                use: [
+                    {
+                        loader: "file-loader",
+                        options: {
+                            name: "[hash]-[name].[ext]",
+                            outputPath: "static/images",
+                            publicPath: "/static/images",
+                        },
+                    },
+                ],
             },
         ],
     },
@@ -57,7 +70,7 @@ const config: Configuration = {
                 warnings: false,
                 errors: true,
             },
-            outputFilename: "../licenses.json",
+            outputFilename: "licenses.json",
             renderLicenses: modules =>
                 JSON.stringify(
                     modules.map(module => ({

@@ -4,7 +4,8 @@ import { map, mapTo } from "rxjs/operators";
 import { Inputs } from "./intent";
 
 export const model = (inputs: Inputs) => {
-    const filtered$ = combineLatest([inputs.options$, inputs.text$]).pipe(
+    const value$ = merge(inputs.text$, inputs.selection$.pipe(mapTo("")));
+    const filtered$ = combineLatest([inputs.options$, value$]).pipe(
         map(([options, search]) =>
             options.filter(
                 option =>
@@ -18,11 +19,7 @@ export const model = (inputs: Inputs) => {
         )
     );
 
-    const state$ = combineLatest([
-        merge(inputs.text$, inputs.selection$.pipe(mapTo(""))),
-        inputs.focused$,
-        filtered$,
-    ]).pipe(
+    const state$ = combineLatest([value$, inputs.focused$, filtered$]).pipe(
         map(([text, focus, options]) => ({
             text,
             focus,

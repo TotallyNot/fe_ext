@@ -20,6 +20,7 @@ import {
 
 import { Component, isSuccess, isSome } from "common/types";
 import { obsToStream, streamToObs } from "common/connect";
+import { deepCompare } from "common/util";
 
 import { APISource } from "common/drivers/apiDriver";
 import { DBSource, DBAction } from "common/drivers/dbDriver";
@@ -63,6 +64,11 @@ export const units: Component<Sources, Sinks> = sources => {
         pluck("data", "country"),
         filter(isSome),
         distinctUntilChanged()
+    );
+
+    const countries$ = settings$.pipe(
+        pluck("countries"),
+        distinctUntilChanged(deepCompare)
     );
 
     const initCollection$ = sources.DB.db$.pipe(
@@ -251,9 +257,67 @@ export const units: Component<Sources, Sinks> = sources => {
         )
     );
 
+    const countriesNotif$ = countries$.pipe(
+        switchMap(countries => {
+            const ids = countries.map(country => country.id);
+            const entries$ = sources.DB.db$.pipe(
+                switchMap(db => db.country.findByIds$(ids)),
+                share()
+            );
+
+            return merge(
+                ...countries.map(country => {
+                    const event$ = entries$.pipe(
+                        map(entries => entries.get(country.id)),
+                        filter(isSome),
+                        map(entry => entry.deltas[entry.deltas.length - 1]),
+                        distinctUntilChanged(deepCompare),
+                        skip(1),
+                        share()
+                    );
+
+                    const allies$ = event$.pipe(
+                        filter(event => event?.allies !== undefined),
+                        map(event =>
+                            create(`${country.id}_allies`, {
+                                title: `Allied units in ${country.name}`,
+                                message: `Changed by ${event.allies}!`,
+                                iconUrl: "icon256.png",
+                                type: "basic",
+                            })
+                        )
+                    );
+
+                    const axis$ = event$.pipe(
+                        filter(event => event?.axis !== undefined),
+                        map(event =>
+                            create(`${country.id}_axis`, {
+                                title: `Axis units in ${country.name}`,
+                                message: `Changed by ${event.axis}!`,
+                                iconUrl: "icon256.png",
+                                type: "basic",
+                            })
+                        )
+                    );
+
+                    return merge(
+                        country.allies ? allies$ : EMPTY,
+                        country.axis ? axis$ : EMPTY
+                    ).pipe(
+                        throttleTime(
+                            country.cooldown.active
+                                ? country.cooldown.seconds * 1000
+                                : 0
+                        )
+                    );
+                })
+            );
+        })
+    );
+
     const db$ = merge(initCollection$, addDelta$, updateCurrent$);
 
-    const notification$ = merge(alliesCreate$, axisCreate$);
+    const notification$ = merge(alliesCreate$, axisCreate$, countriesNotif$);
 
     return {
         notifications: obsToStream(notification$),
