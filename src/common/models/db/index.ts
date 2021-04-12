@@ -5,10 +5,18 @@ import { RxDBValidateZSchemaPlugin } from "rxdb/plugins/validate-z-schema";
 import { RxDBMigrationPlugin } from "rxdb/plugins/migration";
 import { RxDBDevModePlugin } from "rxdb/plugins/dev-mode";
 import { RxDBUpdatePlugin } from "rxdb/plugins/update";
+import { RxDBLocalDocumentsPlugin } from "rxdb/plugins/local-documents";
+
+import { projectToUnitSphere, Coordinate } from "common/algo/geometry";
+import { buildKDTree, KDTree } from "common/algo/kdtree";
 
 import { PlayerCollection, PlayerDocType } from "./player/types";
 import { PlayerSchema } from "./player/schema";
-import { CountryCollection, CountryDocType } from "./country/types";
+import {
+    CountryCollection,
+    CountryDocType,
+    CountryNode,
+} from "./country/types";
 import { CountrySchema } from "./country/schema";
 import { CountryEventCollection } from "./countryEvent/types";
 import { CountryEventSchema } from "./countryEvent/schema";
@@ -21,6 +29,7 @@ addRxPlugin(require("pouchdb-adapter-idb"));
 addRxPlugin(RxDBValidateZSchemaPlugin);
 addRxPlugin(RxDBMigrationPlugin);
 addRxPlugin(RxDBUpdatePlugin);
+addRxPlugin(RxDBLocalDocumentsPlugin);
 
 type Collections = {
     player: PlayerCollection;
@@ -64,6 +73,31 @@ export const makeDB = async () => {
                 1(oldDoc: CountryDocType): CountryDocType {
                     oldDoc.deltas = [];
                     return oldDoc;
+                },
+            },
+            statics: {
+                kdtree: async function(
+                    this: CountryCollection
+                ): Promise<KDTree<CountryNode> | undefined> {
+                    let tree = (
+                        await this.getLocal<KDTree<CountryNode>>("kdtree")
+                    )?.toJSON();
+                    if (tree) return tree;
+
+                    const countries = await this.find().exec();
+                    if (countries.length === 0) return;
+
+                    const values = countries.map(
+                        ({ id, name, coordinates }) => ({
+                            id,
+                            name,
+                            cartesian: projectToUnitSphere(coordinates),
+                        })
+                    );
+
+                    tree = buildKDTree(values, value => value.cartesian);
+                    await this.upsertLocal("kdtree", tree);
+                    return tree;
                 },
             },
         },

@@ -1,5 +1,8 @@
 import { RxDocument, RxCollection } from "rxdb";
 
+import { Coordinate } from "common/algo/geometry";
+import { KDTree } from "common/algo/kdtree";
+
 export type CountryDocType = {
     id: string;
 
@@ -40,4 +43,17 @@ export type CountryDocType = {
 
 export type CountryDocument = RxDocument<CountryDocType>;
 
-export type CountryCollection = RxCollection<CountryDocType>;
+export type CountryNode = {
+    id: string;
+    name: string;
+    cartesian: Coordinate;
+};
+
+type CollectionMethods = {
+    kdtree: () => Promise<KDTree<CountryNode>>;
+};
+export type CountryCollection = RxCollection<
+    CountryDocType,
+    {},
+    CollectionMethods
+>;
